@@ -126,8 +126,8 @@ export default function EstimationSession() {
 	}, [currentRound, userId]);
 
 	useEffect(() => {
-		if (workstreams.length === 0) {
-			setSelectedWorkstream("general");
+		if (workstreams.length < 2) {
+			setSelectedWorkstream(workstreams[0]?.id || "general");
 		}
 	}, [workstreams]);
 
@@ -256,7 +256,7 @@ export default function EstimationSession() {
 				{/* Workstream Selection & Estimation */}
 				<div className="lg:col-span-2 space-y-4">
 					{/* Workstreams - Only show if there are any */}
-					{workstreams.length > 0 && (
+					{workstreams.length > 1 && (
 						<Card>
 							<CardHeader>
 								<CardTitle>Select Workstream to Estimate</CardTitle>

@@ -13,7 +13,6 @@ import {
 import { Separator } from "~/components/ui/separator";
 import { advanceToNextTask, updateRoomStatus } from "~/lib/firebase/operations";
 import {
-	useCurrentTask,
 	useFirebaseRoom,
 	useIsOrganizer,
 	useLastCompletedRound,
@@ -69,7 +68,6 @@ export default function Results() {
 	const participants = useParticipants(roomId);
 	const isOrganizer = useIsOrganizer(roomId, userId);
 	const tasks = useTasks(roomId);
-	const _currentTask = useCurrentTask(roomId);
 	const metadata = useRoomMetadata(roomId);
 	const submit = useSubmit();
 	const navigation = useNavigation();
@@ -159,170 +157,100 @@ export default function Results() {
 						</Badge>
 					</div>
 
-					{shouldShowWorkstreamSection ? (
-						// Multiple workstreams - show by workstream
-						workstreams.map((workstream) => {
-							const stats = getWorkstreamStats(workstream.id);
-
-							if (stats.count === 0) {
-								return null;
-							}
-
+					{workstreams.map((workstream) => {
+						const stats = getWorkstreamStats(workstream.id);
+						if (stats.count === 0) {
 							return (
 								<Card key={workstream.id}>
 									<CardHeader>
-										<div className="flex items-center justify-between">
-											<div className="space-y-1">
-												<CardTitle>{workstream.name}</CardTitle>
-												<CardDescription>
-													{stats.count}{" "}
-													{stats.count === 1 ? "estimate" : "estimates"}
-												</CardDescription>
-											</div>
-											<div className="flex gap-4 text-center">
-												<div>
-													<p className="text-sm text-muted-foreground">Min</p>
-													<p className="text-2xl font-bold">{stats.min}</p>
-												</div>
-												<div>
-													<p className="text-sm text-muted-foreground">Avg</p>
-													<p className="text-2xl font-bold">
-														{stats.avg.toFixed(1)}
-													</p>
-												</div>
-												<div>
-													<p className="text-sm text-muted-foreground">Max</p>
-													<p className="text-2xl font-bold">{stats.max}</p>
-												</div>
-											</div>
+										<div className="space-y-1">
+											<CardTitle>{workstream.name}</CardTitle>
+											<CardDescription>No estimates yet</CardDescription>
 										</div>
 									</CardHeader>
 									<Separator />
 									<CardContent>
-										<div className="space-y-3">
-											{Object.entries(lastRound.estimates)
-												.filter(([_, data]) => data.workstreams[workstream.id])
-												.map(([participantId, data]) => {
-													const participant = participants?.find(
-														(p) => p.peer_id === participantId,
-													);
-													const estimate = data.workstreams[workstream.id];
-													const participantName =
-														data.participant_name ||
-														participant?.name ||
-														"Unknown";
-													const participantColor =
-														participant?.color || "bg-gray-500";
-
-													return (
-														<div
-															key={participantId}
-															className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
-														>
-															<Avatar className="w-10 h-10">
-																<AvatarFallback className={participantColor}>
-																	{participantName.charAt(0).toUpperCase()}
-																</AvatarFallback>
-															</Avatar>
-															<div className="flex-1">
-																<p className="font-medium">{participantName}</p>
-															</div>
-															<Badge
-																variant="default"
-																className="text-lg px-4 py-1"
-															>
-																{estimate.value}
-															</Badge>
-														</div>
-													);
-												})}
-										</div>
+										<p className="text-muted-foreground text-center py-4">
+											No participants estimated for this workstream
+										</p>
 									</CardContent>
 								</Card>
 							);
-						})
-					) : (
-						// No workstreams or single workstream - show flat list with "General workstream"
-						<Card>
-							<CardHeader>
-								<div className="flex items-center justify-between">
-									<div className="space-y-1">
-										<CardTitle>General Workstream</CardTitle>
-										<CardDescription>
-											{Object.keys(lastRound.estimates).length} estimates
-										</CardDescription>
+						}
+
+						return (
+							<Card key={workstream.id}>
+								<CardHeader>
+									<div className="flex items-center justify-between">
+										<div className="space-y-1">
+											<CardTitle>{workstream.name}</CardTitle>
+											<CardDescription>
+												{stats.count}{" "}
+												{stats.count === 1 ? "estimate" : "estimates"}
+											</CardDescription>
+										</div>
+										<div className="flex gap-4 text-center">
+											<div>
+												<p className="text-sm text-muted-foreground">Min</p>
+												<p className="text-2xl font-bold">{stats.min}</p>
+											</div>
+											<div>
+												<p className="text-sm text-muted-foreground">Avg</p>
+												<p className="text-2xl font-bold">
+													{stats.avg.toFixed(1)}
+												</p>
+											</div>
+											<div>
+												<p className="text-sm text-muted-foreground">Max</p>
+												<p className="text-2xl font-bold">{stats.max}</p>
+											</div>
+										</div>
 									</div>
-									{workstreams.length === 1 &&
-										(() => {
-											const stats = getWorkstreamStats(workstreams[0].id);
-											return (
-												<div className="flex gap-4 text-center">
-													<div>
-														<p className="text-sm text-muted-foreground">Min</p>
-														<p className="text-2xl font-bold">{stats.min}</p>
-													</div>
-													<div>
-														<p className="text-sm text-muted-foreground">Avg</p>
-														<p className="text-2xl font-bold">
-															{stats.avg.toFixed(1)}
-														</p>
-													</div>
-													<div>
-														<p className="text-sm text-muted-foreground">Max</p>
-														<p className="text-2xl font-bold">{stats.max}</p>
-													</div>
-												</div>
-											);
-										})()}
-								</div>
-							</CardHeader>
-							<Separator />
-							<CardContent>
-								<div className="space-y-3">
-									{Object.entries(lastRound.estimates).map(
-										([participantId, data]) => {
-											const participant = participants?.find(
-												(p) => p.peer_id === participantId,
-											);
-											const participantName =
-												data.participant_name || participant?.name || "Unknown";
-											const participantColor =
-												participant?.color || "bg-gray-500";
-											// Use first workstream estimate or general value
-											const estimate =
-												workstreams.length === 1
-													? data.workstreams[workstreams[0].id]
-													: Object.values(data.workstreams)[0];
+								</CardHeader>
+								<Separator />
+								<CardContent>
+									<div className="space-y-3">
+										{Object.entries(lastRound.estimates)
+											.filter(([_, data]) => data.workstreams[workstream.id])
+											.map(([participantId, data]) => {
+												const participant = participants?.find(
+													(p) => p.peer_id === participantId,
+												);
+												const estimate = data.workstreams[workstream.id];
+												const participantName =
+													data.participant_name ||
+													participant?.name ||
+													"Unknown";
+												const participantColor =
+													participant?.color || "bg-gray-500";
 
-											if (!estimate) return null;
-
-											return (
-												<div
-													key={participantId}
-													className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
-												>
-													<Avatar className="w-10 h-10">
-														<AvatarFallback className={participantColor}>
-															{participantName.charAt(0).toUpperCase()}
-														</AvatarFallback>
-													</Avatar>
-													<div className="flex-1">
-														<p className="font-medium">{participantName}</p>
-													</div>
-													<Badge
-														variant="default"
-														className="text-lg px-4 py-1"
+												return (
+													<div
+														key={participantId}
+														className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
 													>
-														{estimate.value}
-													</Badge>
-												</div>
-											);
-										},
-									)}
-								</div>
-							</CardContent>
-						</Card>
-					)}
+														<Avatar className="w-10 h-10">
+															<AvatarFallback className={participantColor}>
+																{participantName.charAt(0).toUpperCase()}
+															</AvatarFallback>
+														</Avatar>
+														<div className="flex-1">
+															<p className="font-medium">{participantName}</p>
+														</div>
+														<Badge
+															variant="default"
+															className="text-lg px-4 py-1"
+														>
+															{estimate.value}
+														</Badge>
+													</div>
+												);
+											})}
+									</div>
+								</CardContent>
+							</Card>
+						);
+					})}
 				</div>
 
 				{/* Right Column: Actions - Narrow */}
