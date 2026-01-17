@@ -4,8 +4,15 @@ import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
+import { Checkbox } from "~/components/ui/checkbox";
 import { X, Plus } from "lucide-react";
 import { createRoomCode } from "~/lib/utils/room-code";
 import { nanoid } from "nanoid";
@@ -20,14 +27,17 @@ export function meta({}: Route.MetaArgs) {
 
 export default function CreateRoom() {
   const navigate = useNavigate();
-  const [workstreams, setWorkstreams] = useState<Omit<Workstream, 'order'>[]>([
-    { id: nanoid(), name: "" }
+  const [workstreams, setWorkstreams] = useState<Omit<Workstream, "order">[]>([
+    { id: nanoid(), name: "" },
   ]);
-  const [tasks, setTasks] = useState<Omit<Task, 'order'>[]>([
-    { id: nanoid(), title: "", link: "" }
+  const [tasks, setTasks] = useState<Omit<Task, "order">[]>([
+    { id: nanoid(), title: "", link: "" },
   ]);
-  const [errors, setErrors] = useState<{ workstreams?: string; tasks?: string }>({});
-  const [includeWorkstreams, setIncludeWorkstreams] = useState(true);
+  const [errors, setErrors] = useState<{
+    workstreams?: string;
+    tasks?: string;
+  }>({});
+  const [includeWorkstreams, setIncludeWorkstreams] = useState(false);
 
   const addWorkstream = () => {
     setWorkstreams([...workstreams, { id: nanoid(), name: "" }]);
@@ -35,12 +45,14 @@ export default function CreateRoom() {
 
   const removeWorkstream = (id: string) => {
     if (workstreams.length > 1) {
-      setWorkstreams(workstreams.filter(ws => ws.id !== id));
+      setWorkstreams(workstreams.filter((ws) => ws.id !== id));
     }
   };
 
   const updateWorkstream = (id: string, name: string) => {
-    setWorkstreams(workstreams.map(ws => ws.id === id ? { ...ws, name } : ws));
+    setWorkstreams(
+      workstreams.map((ws) => (ws.id === id ? { ...ws, name } : ws)),
+    );
     setErrors({ ...errors, workstreams: undefined });
   };
 
@@ -50,12 +62,12 @@ export default function CreateRoom() {
 
   const removeTask = (id: string) => {
     if (tasks.length > 1) {
-      setTasks(tasks.filter(t => t.id !== id));
+      setTasks(tasks.filter((t) => t.id !== id));
     }
   };
 
-  const updateTask = (id: string, field: 'title' | 'link', value: string) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, [field]: value } : t));
+  const updateTask = (id: string, field: "title" | "link", value: string) => {
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
     setErrors({ ...errors, tasks: undefined });
   };
 
@@ -64,14 +76,16 @@ export default function CreateRoom() {
 
     // Validate workstreams only if enabled
     if (includeWorkstreams) {
-      const filledWorkstreams = workstreams.filter(ws => ws.name.trim() !== "");
+      const filledWorkstreams = workstreams.filter(
+        (ws) => ws.name.trim() !== "",
+      );
       if (filledWorkstreams.length === 0) {
         newErrors.workstreams = "Add at least one workstream";
       }
     }
 
     // Validate tasks
-    const filledTasks = tasks.filter(t => t.title.trim() !== "");
+    const filledTasks = tasks.filter((t) => t.title.trim() !== "");
     if (filledTasks.length === 0) {
       newErrors.tasks = "Add at least one task";
     }
@@ -86,13 +100,15 @@ export default function CreateRoom() {
     }
 
     // Filter out empty entries
-    const validWorkstreams = includeWorkstreams 
-      ? workstreams.filter(ws => ws.name.trim() !== "")
+    const validWorkstreams = includeWorkstreams
+      ? workstreams.filter((ws) => ws.name.trim() !== "")
       : [];
-    const validTasks = tasks.filter(t => t.title.trim() !== "").map(t => ({
-      ...t,
-      link: t.link?.trim() || undefined
-    }));
+    const validTasks = tasks
+      .filter((t) => t.title.trim() !== "")
+      .map((t) => ({
+        ...t,
+        link: t.link?.trim() || undefined,
+      }));
 
     // Generate room code
     const roomCode = createRoomCode();
@@ -102,8 +118,8 @@ export default function CreateRoom() {
       state: {
         createRoom: true,
         workstreams: validWorkstreams,
-        tasks: validTasks
-      }
+        tasks: validTasks,
+      },
     });
   };
 
@@ -119,7 +135,7 @@ export default function CreateRoom() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column: Tasks and Workstreams */}
+          {/* Left Column: Workstreams and Tasks */}
           <div className="lg:col-span-2 space-y-6">
             {/* Tasks Section */}
             <Card>
@@ -132,32 +148,45 @@ export default function CreateRoom() {
               <CardContent className="space-y-4">
                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                   {tasks.map((task, index) => (
-                    <div key={task.id} className="space-y-2 p-3 border rounded-lg">
+                    <div
+                      key={task.id}
+                      className="space-y-2 p-3 border rounded-lg"
+                    >
                       <div className="flex gap-2">
                         <span className="text-sm font-medium text-muted-foreground">
                           #{index + 1}
                         </span>
                         <div className="flex-1 space-y-2">
                           <div>
-                            <Label htmlFor={`task-title-${task.id}`} className="sr-only">
+                            <Label
+                              htmlFor={`task-title-${task.id}`}
+                              className="sr-only"
+                            >
                               Task {index + 1} Title
                             </Label>
                             <Input
                               id={`task-title-${task.id}`}
                               placeholder="Task title"
                               value={task.title}
-                              onChange={(e) => updateTask(task.id, 'title', e.target.value)}
+                              onChange={(e) =>
+                                updateTask(task.id, "title", e.target.value)
+                              }
                             />
                           </div>
                           <div>
-                            <Label htmlFor={`task-link-${task.id}`} className="sr-only">
+                            <Label
+                              htmlFor={`task-link-${task.id}`}
+                              className="sr-only"
+                            >
                               Task {index + 1} Link
                             </Label>
                             <Input
                               id={`task-link-${task.id}`}
                               placeholder="Link (optional)"
                               value={task.link}
-                              onChange={(e) => updateTask(task.id, 'link', e.target.value)}
+                              onChange={(e) =>
+                                updateTask(task.id, "link", e.target.value)
+                              }
                             />
                           </div>
                         </div>
@@ -190,98 +219,108 @@ export default function CreateRoom() {
               </CardContent>
             </Card>
 
-            {/* Workstreams Section - Conditional */}
-            {includeWorkstreams && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Workstreams</CardTitle>
-                  <CardDescription>
-                    Logical categories for estimation (e.g., Frontend, Backend, QA)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {workstreams.map((ws, index) => (
-                    <div key={ws.id} className="flex gap-2">
-                      <div className="flex-1">
-                        <Label htmlFor={`workstream-${ws.id}`} className="sr-only">
-                          Workstream {index + 1}
-                        </Label>
-                        <Input
-                          id={`workstream-${ws.id}`}
-                          placeholder={`Workstream ${index + 1}`}
-                          value={ws.name}
-                          onChange={(e) => updateWorkstream(ws.id, e.target.value)}
-                        />
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeWorkstream(ws.id)}
-                        disabled={workstreams.length === 1}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-
-                  {errors.workstreams && (
-                    <p className="text-sm text-destructive">{errors.workstreams}</p>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addWorkstream}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Workstream
-                  </Button>
-
-                  <Separator />
-
-                  <div className="text-sm text-muted-foreground space-y-2">
-                    <p className="font-medium">Note:</p>
-                    <p>Participants can estimate for any workstream, regardless of their role.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Right Column: CTA and Settings */}
-          <div className="space-y-6">
-            {/* Settings Card */}
+            {/* Workstreams Section - Now always visible with checkbox */}
             <Card>
               <CardHeader>
-                <CardTitle>Settings</CardTitle>
+                <CardTitle>Workstreams</CardTitle>
+                <CardDescription>
+                  Logical categories for estimation (e.g., Frontend, Backend,
+                  QA)
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                <div className="flex items-center gap-3">
+                  <Checkbox
                     id="workstreams-checkbox"
                     checked={includeWorkstreams}
-                    onChange={(e) => setIncludeWorkstreams(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300"
+                    onCheckedChange={(checked) =>
+                      setIncludeWorkstreams(checked === true)
+                    }
                   />
-                  <label htmlFor="workstreams-checkbox" className="text-sm cursor-pointer">
+                  <Label
+                    htmlFor="workstreams-checkbox"
+                    className="cursor-pointer"
+                  >
                     Estimate multiple workstreams
-                  </label>
+                  </Label>
                 </div>
+                {includeWorkstreams && (
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-3">
+                      {workstreams.map((ws, index) => (
+                        <div key={ws.id} className="flex gap-2">
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`workstream-${ws.id}`}
+                              className="sr-only"
+                            >
+                              Workstream {index + 1}
+                            </Label>
+                            <Input
+                              id={`workstream-${ws.id}`}
+                              placeholder={`Workstream ${index + 1}`}
+                              value={ws.name}
+                              onChange={(e) =>
+                                updateWorkstream(ws.id, e.target.value)
+                              }
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeWorkstream(ws.id)}
+                            disabled={workstreams.length === 1}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {errors.workstreams && (
+                      <p className="text-sm text-destructive">
+                        {errors.workstreams}
+                      </p>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addWorkstream}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Workstream
+                    </Button>
+
+                    <Separator />
+
+                    <div className="text-sm text-muted-foreground space-y-2">
+                      <p className="font-medium">Note:</p>
+                      <p>
+                        Participants can estimate for any workstream, regardless
+                        of their role.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
+          </div>
 
+          {/* Right Column: CTA */}
+          <div className="space-y-6">
             {/* Actions Card */}
             <Card>
               <CardHeader>
                 <CardTitle>Ready?</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+
                 <div className="text-sm text-muted-foreground space-y-2">
                   <p>A unique room code will be generated.</p>
                   <p>Share it with participants to join.</p>
                 </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Button
                     onClick={handleCreateRoom}
