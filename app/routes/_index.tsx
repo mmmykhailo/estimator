@@ -69,11 +69,9 @@ export default function Home() {
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
-							<Link to="/create">
-								<Button size="lg" className="w-full">
-									Create New Room
-								</Button>
-							</Link>
+							<Button asChild size="lg" className="w-full">
+								<Link to="/create">Create New Room</Link>
+							</Button>
 							<div className="mt-4 text-sm text-muted-foreground space-y-2">
 								<p>As organizer, you will:</p>
 								<ul className="list-disc list-inside space-y-1">
