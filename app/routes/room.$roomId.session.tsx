@@ -51,13 +51,6 @@ export default function EstimationSession() {
   );
   const [isDone, setIsDone] = useState(false);
 
-  // If no workstreams defined, auto-select the implicit "general" workstream
-  useEffect(() => {
-    if (workstreams.length === 0 && !selectedWorkstream) {
-      setSelectedWorkstream("general");
-    }
-  }, [workstreams, selectedWorkstream]);
-
   // Sync my estimates from Firebase
   useEffect(() => {
     if (!currentRound) return;
@@ -74,6 +67,10 @@ export default function EstimationSession() {
 
     setMyEstimates(estimates);
     setIsDone(myData.is_done || false);
+
+    if (Object.keys(myData.workstreams).length === 0) {
+      setSelectedWorkstream("general");
+    }
   }, [currentRound, peerId]);
 
   // Auto-end round when all done
