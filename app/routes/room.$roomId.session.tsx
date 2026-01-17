@@ -48,7 +48,8 @@ export async function clientAction({
         const workstreamId = formData.get("workstreamId") as string;
         const valueStr = formData.get("value") as string;
         // Convert string to proper FibonacciValue type (number or "?")
-        const value: FibonacciValue = valueStr === "?" ? "?" : Number(valueStr);
+        const value: FibonacciValue =
+          valueStr === "?" ? "?" : (Number(valueStr) as FibonacciValue);
         await submitEstimate(roomId, workstreamId, value);
         return { success: true };
       }
@@ -111,9 +112,11 @@ export default function EstimationSession() {
         // Convert string values to numbers (except "?")
         const rawValue = estimate.value;
         const value: FibonacciValue =
-          rawValue === "?" ? "?" :
-          typeof rawValue === "string" ? Number(rawValue) :
-          rawValue;
+          rawValue === "?"
+            ? "?"
+            : typeof rawValue === "string"
+              ? Number(rawValue)
+              : rawValue;
         estimates.set(workstreamId, value);
       },
     );

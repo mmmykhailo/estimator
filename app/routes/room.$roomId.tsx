@@ -24,7 +24,6 @@ import {
 import { auth } from "~/lib/firebase/config";
 import { signInAnonymously } from "firebase/auth";
 import type { Workstream, Task } from "~/types/room";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -56,8 +55,6 @@ import {
   useRoomStatus,
   useOrganizerId,
   useParticipants,
-  useConnectionStatus,
-  useFirebaseRoom,
 } from "~/lib/room/hooks";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 

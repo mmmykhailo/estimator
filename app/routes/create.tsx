@@ -2,6 +2,8 @@ import type { Route } from "./+types/create";
 import { useState, useEffect } from "react";
 import { useNavigate, useSubmit, useNavigation, useActionData } from "react-router";
 import { createRoom } from "~/lib/firebase/operations";
+import { auth } from "~/lib/firebase/config";
+import { signInAnonymously } from "firebase/auth";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -24,6 +26,14 @@ export function meta({}: Route.MetaArgs) {
     { title: "Create Room - Estimation" },
     { name: "description", content: "Create a new estimation room" },
   ];
+}
+
+export async function clientLoader({}: Route.ClientLoaderArgs) {
+  // Ensure user is authenticated before they can create a room
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
+  return null;
 }
 
 export async function clientAction({ request }: Route.ClientActionArgs) {
