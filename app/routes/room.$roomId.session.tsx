@@ -1,6 +1,6 @@
 import { Check, ExternalLink, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigation, useSubmit } from "react-router";
+import { useLoaderData, useNavigation, useSubmit } from "react-router";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -18,12 +18,19 @@ import {
 	submitEstimate,
 } from "~/lib/firebase/operations";
 import {
+	getCurrentRoundSnapshot,
+	getMetadataSnapshot,
+	getParticipantsSnapshot,
+	getTasksSnapshot,
+	getWorkstreamsSnapshot,
+} from "~/lib/firebase/snapshots";
+import {
 	useAllParticipantsDone,
 	useCurrentRound,
-	useCurrentTask,
 	useFirebaseRoom,
 	useIsOrganizer,
 	useParticipants,
+	useRoomMetadata,
 	useTasks,
 	useWorkstreams,
 } from "~/lib/room/hooks";
@@ -32,6 +39,34 @@ import type { Route } from "./+types/room.$roomId.session";
 
 export function meta(_args: Route.MetaArgs) {
 	return [{ title: "Estimation Session - Estimation" }];
+}
+
+export async function clientLoader({ params }: Route.ClientLoaderArgs) {
+	const roomId = params.roomId;
+
+	const [metadata, participants, workstreams, tasks, currentRound] =
+		await Promise.all([
+			getMetadataSnapshot(roomId),
+			getParticipantsSnapshot(roomId),
+			getWorkstreamsSnapshot(roomId),
+			getTasksSnapshot(roomId),
+			getCurrentRoundSnapshot(roomId),
+		]);
+
+	// Compute current task from metadata and tasks
+	const currentTask =
+		metadata && tasks.length > 0
+			? tasks.find((t) => t.order === metadata.current_task_index) || null
+			: null;
+
+	return {
+		metadata,
+		participants,
+		workstreams,
+		tasks,
+		currentRound,
+		currentTask,
+	};
 }
 
 export async function clientAction({
@@ -77,14 +112,24 @@ export async function clientAction({
 }
 
 export default function EstimationSession() {
+	const loaderData = useLoaderData<typeof clientLoader>();
 	const { roomId, userId } = useFirebaseRoom();
-	const currentTask = useCurrentTask(roomId);
-	const workstreams = useWorkstreams(roomId);
-	const currentRound = useCurrentRound(roomId);
-	const participants = useParticipants(roomId);
+
+	// Use loader data as initial values, hooks subscribe for real-time updates
+	const metadata = useRoomMetadata(roomId, loaderData.metadata);
+	const workstreams = useWorkstreams(roomId, loaderData.workstreams);
+	const tasks = useTasks(roomId, loaderData.tasks);
+	const currentRound = useCurrentRound(roomId, loaderData.currentRound);
+	const participants = useParticipants(roomId, loaderData.participants);
 	const isOrganizer = useIsOrganizer(roomId, userId);
 	const allDone = useAllParticipantsDone(roomId);
-	const tasks = useTasks(roomId);
+
+	// Compute current task from metadata and tasks
+	const currentTask =
+		metadata && tasks.length > 0
+			? tasks.find((t) => t.order === metadata.current_task_index) || null
+			: null;
+
 	const submit = useSubmit();
 	const navigation = useNavigation();
 
@@ -115,7 +160,7 @@ export default function EstimationSession() {
 					rawValue === "?"
 						? "?"
 						: typeof rawValue === "string"
-							? Number(rawValue)
+							? (Number(rawValue) as FibonacciValue)
 							: rawValue;
 				estimates.set(workstreamId, value);
 			},
@@ -324,7 +369,7 @@ export default function EstimationSession() {
 					)}
 
 					{/* Fibonacci Estimate Buttons */}
-					{selectedWorkstream && (
+					{!!selectedWorkstream && (
 						<Card>
 							<CardHeader>
 								<CardTitle>Your Estimate</CardTitle>

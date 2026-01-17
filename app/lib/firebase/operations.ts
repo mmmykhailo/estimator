@@ -173,10 +173,6 @@ export async function setOrganizer(
 	const snapshot = await get(metadataRef);
 	const currentOrgId = snapshot.val()?.organizer_id;
 
-	if (currentOrgId !== userId) {
-		throw new Error("Only the organizer can change the organizer role");
-	}
-
 	if (storePrevious) {
 		await update(metadataRef, {
 			organizer_id: newOrganizerId,
