@@ -1,5 +1,5 @@
 import type { Route } from "./+types/room.$roomId._index";
-import { Form, useSubmit, useNavigation } from "react-router";
+import { useSubmit, useNavigation, useLoaderData } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -20,9 +20,31 @@ import {
   useIsOrganizer,
 } from "~/lib/room/hooks";
 import { startRound } from "~/lib/firebase/operations";
+import {
+  getParticipantsSnapshot,
+  getWorkstreamsSnapshot,
+  getTasksSnapshot,
+} from "~/lib/firebase/snapshots";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Lobby - Estimation" }];
+}
+
+export async function clientLoader({ params }: Route.ClientLoaderArgs) {
+  const roomId = params.roomId;
+
+  // Prefetch initial data in parallel
+  const [participants, workstreams, tasks] = await Promise.all([
+    getParticipantsSnapshot(roomId),
+    getWorkstreamsSnapshot(roomId),
+    getTasksSnapshot(roomId),
+  ]);
+
+  return {
+    initialParticipants: participants,
+    initialWorkstreams: workstreams,
+    initialTasks: tasks,
+  };
 }
 
 export async function clientAction({
@@ -54,9 +76,13 @@ export async function clientAction({
 
 export default function Lobby() {
   const { roomId, userId } = useFirebaseRoom();
-  const workstreams = useWorkstreams(roomId);
-  const tasks = useTasks(roomId);
-  const participants = useParticipants(roomId);
+  const loaderData = useLoaderData<typeof clientLoader>();
+
+  // Use hooks with initial data from loader
+  // The hooks will return loader data first, then switch to real-time updates
+  const workstreams = useWorkstreams(roomId, loaderData.initialWorkstreams);
+  const tasks = useTasks(roomId, loaderData.initialTasks);
+  const participants = useParticipants(roomId, loaderData.initialParticipants);
   const isOrganizer = useIsOrganizer(roomId, userId);
   const submit = useSubmit();
   const navigation = useNavigation();

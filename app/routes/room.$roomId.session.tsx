@@ -446,8 +446,8 @@ export default function EstimationSession() {
               </CardContent>
             </Card>
           </div>
-
-      </div>)}
+        )}
+      </div>
     </div>
   );
 }

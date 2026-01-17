@@ -73,8 +73,8 @@ export function useIsOrganizer(roomId: string, userId: string | null): boolean {
 /**
  * Hook to get workstreams
  */
-export function useWorkstreams(roomId: string): Workstream[] {
-  const [workstreams, setWorkstreams] = useState<Workstream[]>([]);
+export function useWorkstreams(roomId: string, initialData?: Workstream[]): Workstream[] {
+  const [workstreams, setWorkstreams] = useState<Workstream[]>(initialData || []);
 
   useEffect(() => {
     return onWorkstreams(roomId, setWorkstreams);
@@ -86,8 +86,8 @@ export function useWorkstreams(roomId: string): Workstream[] {
 /**
  * Hook to get tasks
  */
-export function useTasks(roomId: string): Task[] {
-  const [tasks, setTasks] = useState<Task[]>([]);
+export function useTasks(roomId: string, initialData?: Task[]): Task[] {
+  const [tasks, setTasks] = useState<Task[]>(initialData || []);
 
   useEffect(() => {
     return onTasks(roomId, setTasks);
@@ -129,8 +129,8 @@ export function useCurrentTask(roomId: string): Task | null {
 /**
  * Hook to get current round
  */
-export function useCurrentRound(roomId: string): Round | null {
-  const [round, setRound] = useState<Round | null>(null);
+export function useCurrentRound(roomId: string, initialData?: Round | null): Round | null {
+  const [round, setRound] = useState<Round | null>(initialData || null);
 
   useEffect(() => {
     return onCurrentRound(roomId, setRound);
@@ -157,8 +157,8 @@ export function useEstimates(roomId: string): Record<string, any> | null {
 /**
  * Hook to get participants
  */
-export function useParticipants(roomId: string): Participant[] | null {
-  const [participants, setParticipants] = useState<Participant[] | null>(null);
+export function useParticipants(roomId: string, initialData?: Participant[]): Participant[] | null {
+  const [participants, setParticipants] = useState<Participant[] | null>(initialData || null);
 
   useEffect(() => {
     return onParticipants(roomId, setParticipants);
@@ -312,8 +312,8 @@ export function useWorkstreamSubmitters(
 /**
  * Hook to get room metadata
  */
-export function useRoomMetadata(roomId: string): RoomMetadata | null {
-  const [metadata, setMetadata] = useState<RoomMetadata | null>(null);
+export function useRoomMetadata(roomId: string, initialData?: RoomMetadata | null): RoomMetadata | null {
+  const [metadata, setMetadata] = useState<RoomMetadata | null>(initialData || null);
 
   useEffect(() => {
     return onRoomMetadata(roomId, setMetadata);
