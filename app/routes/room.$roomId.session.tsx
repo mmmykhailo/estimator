@@ -46,7 +46,9 @@ export async function clientAction({
     switch (actionType) {
       case "submit-estimate": {
         const workstreamId = formData.get("workstreamId") as string;
-        const value = formData.get("value") as FibonacciValue;
+        const valueStr = formData.get("value") as string;
+        // Convert string to proper FibonacciValue type (number or "?")
+        const value: FibonacciValue = valueStr === "?" ? "?" : Number(valueStr);
         await submitEstimate(roomId, workstreamId, value);
         return { success: true };
       }
@@ -95,6 +97,7 @@ export default function EstimationSession() {
   );
   const [isDone, setIsDone] = useState(false);
 
+  useEffect(() => console.log(myEstimates), [myEstimates]);
   // Sync my estimates from Firebase
   useEffect(() => {
     if (!currentRound || !userId) return;
@@ -105,7 +108,13 @@ export default function EstimationSession() {
     const estimates = new Map<string, FibonacciValue>();
     Object.entries(myData.workstreams || {}).forEach(
       ([workstreamId, estimate]: [string, any]) => {
-        estimates.set(workstreamId, estimate.value);
+        // Convert string values to numbers (except "?")
+        const rawValue = estimate.value;
+        const value: FibonacciValue =
+          rawValue === "?" ? "?" :
+          typeof rawValue === "string" ? Number(rawValue) :
+          rawValue;
+        estimates.set(workstreamId, value);
       },
     );
 
