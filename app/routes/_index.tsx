@@ -116,7 +116,8 @@ export default function Home() {
 								Join Room
 							</Button>
 							<p className="text-sm text-muted-foreground">
-								Enter the 6-character code shared by the organizer
+								Enter the {ROOM_CODE_LENGTH}-character code shared by the
+								organizer
 							</p>
 						</CardContent>
 					</Card>
