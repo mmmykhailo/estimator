@@ -2,12 +2,28 @@ import type { Route } from "./+types/room.$roomId";
 import { useEffect, useState, useCallback } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { FirebaseRoomProvider } from "~/lib/room/firebase-context";
-import { createRoom, joinRoom, setOrganizer, updateParticipant, checkRoomExists, getRoomMetadata } from "~/lib/firebase/operations";
-import { detectStaleParticipants, cleanupStaleParticipants } from "~/lib/firebase/presence";
+import {
+  createRoom,
+  joinRoom,
+  setOrganizer,
+  updateParticipant,
+  checkRoomExists,
+  getRoomMetadata,
+} from "~/lib/firebase/operations";
+import {
+  detectStaleParticipants,
+  cleanupStaleParticipants,
+} from "~/lib/firebase/presence";
 import type { Workstream, Task } from "~/types/room";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
@@ -32,13 +48,12 @@ import {
   useOrganizerId,
   useParticipants,
   useConnectionStatus,
-  useFirebaseRoom
+  useFirebaseRoom,
 } from "~/lib/room/hooks";
+import { TooltipPortal } from "@radix-ui/react-tooltip";
 
 export function meta({ params }: Route.MetaArgs) {
-  return [
-    { title: `Room ${params.roomId} - Estimation` },
-  ];
+  return [{ title: `Room ${params.roomId} - Estimation` }];
 }
 
 // Generate peer ID
@@ -87,11 +102,16 @@ export default function RoomLayout() {
 
         if (roomExists) {
           // Room exists - check if we're already a participant
-          const participantsRef = await import('firebase/database').then(m => m.ref);
-          const getFunc = await import('firebase/database').then(m => m.get);
-          const { database } = await import('~/lib/firebase/config');
+          const participantsRef = await import("firebase/database").then(
+            (m) => m.ref,
+          );
+          const getFunc = await import("firebase/database").then((m) => m.get);
+          const { database } = await import("~/lib/firebase/config");
 
-          const participantRef = participantsRef(database, `rooms/${roomId}/participants/${peerId}`);
+          const participantRef = participantsRef(
+            database,
+            `rooms/${roomId}/participants/${peerId}`,
+          );
           const snapshot = await getFunc(participantRef);
 
           if (snapshot.exists()) {
@@ -127,8 +147,10 @@ export default function RoomLayout() {
           if (!success) {
             // Check if room is ended
             const roomMetadata = await getRoomMetadata(roomId);
-            if (roomMetadata?.status === 'ended') {
-              throw new Error("This session has ended. New participants cannot join.");
+            if (roomMetadata?.status === "ended") {
+              throw new Error(
+                "This session has ended. New participants cannot join.",
+              );
             } else {
               throw new Error("Room not found");
             }
@@ -138,8 +160,10 @@ export default function RoomLayout() {
           if (roomExists) {
             // Check if room is ended
             const roomMetadata = await getRoomMetadata(roomId);
-            if (roomMetadata?.status === 'ended') {
-              throw new Error("This session has ended. New participants cannot join.");
+            if (roomMetadata?.status === "ended") {
+              throw new Error(
+                "This session has ended. New participants cannot join.",
+              );
             }
             // Room exists, show name dialog
             if (mounted) {
@@ -149,7 +173,9 @@ export default function RoomLayout() {
             return;
           } else {
             // Room doesn't exist
-            throw new Error("Room not found. Please check the room code or create a new room.");
+            throw new Error(
+              "Room not found. Please check the room code or create a new room.",
+            );
           }
         }
 
@@ -160,7 +186,9 @@ export default function RoomLayout() {
       } catch (err) {
         console.error("Failed to initialize room:", err);
         if (mounted) {
-          setError(err instanceof Error ? err.message : "Failed to initialize room");
+          setError(
+            err instanceof Error ? err.message : "Failed to initialize room",
+          );
           setLoading(false);
         }
       }
@@ -193,9 +221,9 @@ export default function RoomLayout() {
         setShowNameDialog(false);
         setInitialized(true);
         setLoading(false);
-        
+
         // If room is active, navigate to session instead of waiting for effect
-        if (roomMetadata?.status === 'active') {
+        if (roomMetadata?.status === "active") {
           navigate(`/room/${roomId}/session`, { replace: true });
         }
       } else {
@@ -245,7 +273,10 @@ export default function RoomLayout() {
           <CardHeader>
             <CardTitle>Join Room</CardTitle>
             <CardDescription>
-              Enter your name to join room <span className="font-mono font-bold">{formatRoomCode(roomId)}</span>
+              Enter your name to join room{" "}
+              <span className="font-mono font-bold">
+                {formatRoomCode(roomId)}
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -268,7 +299,11 @@ export default function RoomLayout() {
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => navigate("/")} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/")}
+                className="flex-1"
+              >
                 Cancel
               </Button>
               <Button
@@ -316,7 +351,7 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
           await cleanupStaleParticipants(roomId, staleIds);
         }
       } catch (err) {
-        console.error('Failed to cleanup stale participants:', err);
+        console.error("Failed to cleanup stale participants:", err);
       }
     }, 3000); // Check every 3 seconds
 
@@ -325,7 +360,7 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
 
   // Check for organizer disconnect
   useEffect(() => {
-    const organizer = participants.find(p => p.peer_id === organizerId);
+    const organizer = participants.find((p) => p.peer_id === organizerId);
 
     // If I'm not the organizer and either:
     // 1. Organizer is missing from participants list (they left)
@@ -356,13 +391,16 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
     const isOnRoundResultsRoute = path.includes("/round-results");
     const isOnSummaryRoute = path.includes("/summary");
 
-    if (status === 'active' && !isOnSessionRoute) {
+    if (status === "active" && !isOnSessionRoute) {
       navigate(`/room/${roomId}/session`, { replace: true });
-    } else if (status === 'results' && !isOnRoundResultsRoute) {
+    } else if (status === "results" && !isOnRoundResultsRoute) {
       navigate(`/room/${roomId}/round-results`, { replace: true });
-    } else if (status === 'lobby' && (isOnSessionRoute || isOnRoundResultsRoute)) {
+    } else if (
+      status === "lobby" &&
+      (isOnSessionRoute || isOnRoundResultsRoute)
+    ) {
       navigate(`/room/${roomId}`, { replace: true });
-    } else if (status === 'ended' && !isOnSummaryRoute) {
+    } else if (status === "ended" && !isOnSummaryRoute) {
       navigate(`/room/${roomId}/summary`, { replace: true });
     }
   }, [status, roomId, navigate]);
@@ -380,13 +418,13 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
       await updateParticipant(roomId, peerId, { is_organizer: true });
       setShowOrganizerModal(false);
     } catch (err) {
-      console.error('Failed to overtake organizer role:', err);
+      console.error("Failed to overtake organizer role:", err);
     }
   }, [roomId, peerId]);
 
   const handleLeaveRoom = useCallback(() => {
     setShowLeaveModal(false);
-    navigate('/');
+    navigate("/");
   }, [navigate]);
 
   return (
@@ -410,7 +448,7 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
                 <button
                   onClick={copyRoomCode}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  title={copied ? 'Copied!' : 'Click to copy full room link'}
+                  title={copied ? "Copied!" : "Click to copy full room link"}
                 >
                   <span className="font-mono">{formatRoomCode(roomId)}</span>
                   {copied ? (
@@ -425,7 +463,8 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
             {/* Participants */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
-                {participants.length} {participants.length === 1 ? 'participant' : 'participants'}
+                {participants.length}{" "}
+                {participants.length === 1 ? "participant" : "participants"}
               </span>
               <TooltipProvider>
                 <div className="flex -space-x-2">
@@ -438,14 +477,18 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
                           </AvatarFallback>
                         </Avatar>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {participant.name}
-                      </TooltipContent>
+                      <TooltipPortal>
+                        <TooltipContent side="bottom">
+                          {participant.name}
+                        </TooltipContent>
+                      </TooltipPortal>
                     </Tooltip>
                   ))}
                   {participants.length > 5 && (
                     <Avatar className="border-2 border-background w-8 h-8">
-                      <AvatarFallback>+{participants.length - 5}</AvatarFallback>
+                      <AvatarFallback>
+                        +{participants.length - 5}
+                      </AvatarFallback>
                     </Avatar>
                   )}
                 </div>
@@ -466,7 +509,8 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
           <DialogHeader>
             <DialogTitle>Leave Room</DialogTitle>
             <DialogDescription>
-              Are you sure you want to leave this room? You can rejoin with the room code later.
+              Are you sure you want to leave this room? You can rejoin with the
+              room code later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -486,11 +530,15 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
           <DialogHeader>
             <DialogTitle>Organizer Disconnected</DialogTitle>
             <DialogDescription>
-              The organizer has left the session. Would you like to take over as the new organizer?
+              The organizer has left the session. Would you like to take over as
+              the new organizer?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOrganizerModal(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowOrganizerModal(false)}
+            >
               Wait
             </Button>
             <Button onClick={handleOvertakeOrganizer}>
