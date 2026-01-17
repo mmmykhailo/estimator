@@ -297,62 +297,51 @@ export default function Results() {
 
         {/* Right Column: Actions - Narrow */}
         <div className="space-y-4">
-          {isOrganizer && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    {hasMoreTasks ? "Continue" : "All Done"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-sm space-y-1">
-                    <p className="font-medium">
-                      {hasMoreTasks
-                        ? `${tasks.length - currentTaskIndex - 1} ${
-                            tasks.length - currentTaskIndex - 1 === 1
-                              ? "task"
-                              : "tasks"
-                          } remaining`
-                        : "All tasks completed"}
-                    </p>
-                    {hasMoreTasks && (
-                      <p className="text-muted-foreground">
-                        Continue to the next task or end the session
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {hasMoreTasks && (
-                      <Button onClick={handleNextTask} className="w-full">
-                        Next Task
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      onClick={handleEndSession}
-                      className="w-full"
-                    >
-                      {hasMoreTasks ? "End Session" : "Finish"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-
-          {!isOrganizer && (
-            <Card>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center">
+          {/* Show remaining tasks and heading for everyone */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {hasMoreTasks ? "Continue" : "All Done"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm space-y-1">
+                <p className="font-medium">
                   {hasMoreTasks
-                    ? "Waiting for organizer to start the next task..."
-                    : "Waiting for organizer to end the session..."}
+                    ? `${tasks.length - currentTaskIndex - 1} ${
+                        tasks.length - currentTaskIndex - 1 === 1
+                          ? "task"
+                          : "tasks"
+                      } remaining`
+                    : "All tasks completed"}
                 </p>
-              </CardContent>
-            </Card>
-          )}
+                {hasMoreTasks && (
+                  <p className="text-muted-foreground">
+                    {isOrganizer
+                      ? "Continue to the next task or end the session"
+                      : "Waiting for organizer to start the next task..."}
+                  </p>
+                )}
+              </div>
+              {isOrganizer && (
+                <div className="space-y-2">
+                  {hasMoreTasks && (
+                    <Button onClick={handleNextTask} className="w-full">
+                      Next Task
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={handleEndSession}
+                    className="w-full"
+                  >
+                    {hasMoreTasks ? "End Session" : "Finish"}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
