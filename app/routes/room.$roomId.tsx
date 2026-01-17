@@ -542,7 +542,7 @@ function RoomContent({
       </main>
 
       {/* Leave Room Confirmation Modal */}
-      <Dialog open={false} onOpenChange={setShowLeaveModal}>
+      <Dialog open={showLeaveModal} onOpenChange={setShowLeaveModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Leave Room</DialogTitle>
@@ -563,7 +563,7 @@ function RoomContent({
       </Dialog>
 
       {/* Organizer Disconnect Modal */}
-      <Dialog open={false} onOpenChange={setShowOrganizerModal}>
+      <Dialog open={showOrganizerModal} onOpenChange={setShowOrganizerModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Organizer Disconnected</DialogTitle>
