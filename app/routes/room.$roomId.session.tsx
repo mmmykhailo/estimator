@@ -170,17 +170,18 @@ export default function EstimationSession() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 space-y-2">
               <CardDescription>Current Task</CardDescription>
-              <CardTitle className="text-2xl">{currentTask.title}</CardTitle>
-              {currentTask.link && (
+              {currentTask.link ? (
                 <a
                   href={currentTask.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                  className="inline-flex items-center gap-2 text-primary hover:underline hover:text-primary/80"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  View Task
+                  <CardTitle className="text-2xl">{currentTask.title}</CardTitle>
+                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
                 </a>
+              ) : (
+                <CardTitle className="text-2xl">{currentTask.title}</CardTitle>
               )}
             </div>
             <div className="text-right">
