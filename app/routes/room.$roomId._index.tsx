@@ -135,7 +135,7 @@ export default function Lobby() {
 											>
 												<Avatar className="w-10 h-10">
 													<AvatarFallback className={participant.color}>
-														{participant.name.charAt(0).toUpperCase()}
+														{participant.name?.charAt(0).toUpperCase()}
 													</AvatarFallback>
 												</Avatar>
 												<div className="flex-1 min-w-0">
