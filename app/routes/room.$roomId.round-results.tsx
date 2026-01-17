@@ -1,4 +1,4 @@
-import type { Route } from "./+types/room.$roomId.results";
+import type { Route } from "./+types/room.$roomId.round-results";
 import { Button } from "~/components/ui/button";
 import {
   Card,

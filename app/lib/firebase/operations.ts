@@ -79,6 +79,16 @@ export async function joinRoom(
   const exists = await checkRoomExists(roomId)
   if (!exists) return false
 
+  // Check if room is in 'ended' status
+  const metadataRef = ref(database, `rooms/${roomId}/metadata`)
+  const metadataSnapshot = await get(metadataRef)
+  const metadata = metadataSnapshot.val()
+  
+  if (metadata?.status === 'ended') {
+    // Cannot join a session that has ended
+    return false
+  }
+
   // Add participant
   const participantRef = ref(database, `rooms/${roomId}/participants/${peerId}`)
   await set(participantRef, {

@@ -313,3 +313,41 @@ export function useRoomMetadata(roomId: string): RoomMetadata | null {
 
   return metadata
 }
+
+/**
+ * Hook to get all estimates from all completed rounds
+ */
+export function useAllEstimates(roomId: string): Array<{
+  task_id: string
+  participant_name: string
+  workstreams: Record<string, any>
+}> {
+  const completedRounds = useCompletedRounds(roomId)
+  const [allEstimates, setAllEstimates] = useState<Array<{
+    task_id: string
+    participant_name: string
+    workstreams: Record<string, any>
+  }>>([])
+
+  useEffect(() => {
+    const estimates: Array<{
+      task_id: string
+      participant_name: string
+      workstreams: Record<string, any>
+    }> = []
+
+    completedRounds.forEach((round) => {
+      Object.entries(round.estimates).forEach(([, data]: [string, any]) => {
+        estimates.push({
+          task_id: round.task_id,
+          participant_name: data.participant_name,
+          workstreams: data.workstreams,
+        })
+      })
+    })
+
+    setAllEstimates(estimates)
+  }, [completedRounds])
+
+  return allEstimates
+}

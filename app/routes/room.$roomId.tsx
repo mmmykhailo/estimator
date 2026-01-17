@@ -2,7 +2,7 @@ import type { Route } from "./+types/room.$roomId";
 import { useEffect, useState, useCallback } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { FirebaseRoomProvider } from "~/lib/room/firebase-context";
-import { createRoom, joinRoom, setOrganizer, updateParticipant, checkRoomExists } from "~/lib/firebase/operations";
+import { createRoom, joinRoom, setOrganizer, updateParticipant, checkRoomExists, getRoomMetadata } from "~/lib/firebase/operations";
 import { detectStaleParticipants, cleanupStaleParticipants } from "~/lib/firebase/presence";
 import type { Workstream, Task } from "~/types/room";
 import { Badge } from "~/components/ui/badge";
@@ -125,11 +125,22 @@ export default function RoomLayout() {
           const success = await joinRoom(roomId, peerId, name, false);
 
           if (!success) {
-            throw new Error("Room not found");
+            // Check if room is ended
+            const roomMetadata = await getRoomMetadata(roomId);
+            if (roomMetadata?.status === 'ended') {
+              throw new Error("This session has ended. New participants cannot join.");
+            } else {
+              throw new Error("Room not found");
+            }
           }
         } else {
           // No state - check if room exists and prompt for name
           if (roomExists) {
+            // Check if room is ended
+            const roomMetadata = await getRoomMetadata(roomId);
+            if (roomMetadata?.status === 'ended') {
+              throw new Error("This session has ended. New participants cannot join.");
+            }
             // Room exists, show name dialog
             if (mounted) {
               setLoading(false);
@@ -335,16 +346,17 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
   useEffect(() => {
     const path = window.location.pathname;
     const isOnSessionRoute = path.includes("/session");
-    const isOnResultsRoute = path.includes("/results");
+    const isOnRoundResultsRoute = path.includes("/round-results");
+    const isOnSummaryRoute = path.includes("/summary");
 
     if (status === 'active' && !isOnSessionRoute) {
       navigate(`/room/${roomId}/session`, { replace: true });
-    } else if (status === 'results' && !isOnResultsRoute) {
-      navigate(`/room/${roomId}/results`, { replace: true });
-    } else if (status === 'lobby' && (isOnSessionRoute || isOnResultsRoute)) {
+    } else if (status === 'results' && !isOnRoundResultsRoute) {
+      navigate(`/room/${roomId}/round-results`, { replace: true });
+    } else if (status === 'lobby' && (isOnSessionRoute || isOnRoundResultsRoute)) {
       navigate(`/room/${roomId}`, { replace: true });
-    } else if (status === 'ended') {
-      navigate('/', { replace: true });
+    } else if (status === 'ended' && !isOnSummaryRoute) {
+      navigate(`/room/${roomId}/summary`, { replace: true });
     }
   }, [status, roomId, navigate]);
 

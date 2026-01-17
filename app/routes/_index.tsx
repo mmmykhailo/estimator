@@ -3,7 +3,13 @@ import { Link, useNavigate } from "react-router";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
 import { parseRoomCode, isValidRoomCode } from "~/lib/utils/room-code";
 
@@ -43,8 +49,8 @@ export default function Home() {
         <div className="text-center space-y-4">
           <h1 className="text-5xl font-bold tracking-tight">Task Estimation</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Collaborative task estimation with real-time synchronization.
-            Work together with your team to estimate tasks in minutes.
+            Collaborative task estimation with real-time synchronization. Work
+            together with your team to estimate tasks in minutes.
           </p>
         </div>
 
@@ -95,9 +101,7 @@ export default function Home() {
                   className={error ? "border-destructive" : ""}
                   maxLength={6}
                 />
-                {error && (
-                  <p className="text-sm text-destructive">{error}</p>
-                )}
+                {error && <p className="text-sm text-destructive">{error}</p>}
               </div>
               <Button
                 size="lg"
