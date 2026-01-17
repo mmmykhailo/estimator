@@ -1,5 +1,5 @@
 import { ref, set, update, get, push, serverTimestamp, remove } from 'firebase/database'
-import { database } from './config'
+import { database, auth } from './config'
 import type {
   Workstream,
   Task,
@@ -23,10 +23,12 @@ export async function checkRoomExists(roomId: string): Promise<boolean> {
  */
 export async function createRoom(
   roomId: string,
-  peerId: string,
   workstreams: Omit<Workstream, 'order'>[],
   tasks: Omit<Task, 'order'>[]
 ): Promise<void> {
+  const userId = auth.currentUser?.uid
+  if (!userId) throw new Error('User not authenticated')
+
   const roomRef = ref(database, `rooms/${roomId}`)
 
   // Prepare workstreams with order
@@ -50,16 +52,28 @@ export async function createRoom(
     }
   })
 
-  // Create room structure
+  // Create room structure with organizer as participant
+  // This allows the creator to write to the room
   await set(roomRef, {
     metadata: {
       created_at: serverTimestamp(),
-      created_by: peerId,
-      organizer_id: peerId,
+      created_by: userId,
+      organizer_id: userId,
       previous_organizer_id: null,
       status: 'lobby',
       current_task_index: 0,
       last_activity: serverTimestamp()
+    },
+    participants: {
+      [userId]: {
+        peer_id: userId,
+        name: 'Organizer',
+        is_organizer: true,
+        color: generateColorFromPeerId(userId),
+        joined_at: serverTimestamp(),
+        last_heartbeat: serverTimestamp(),
+        connection_status: 'online'
+      }
     },
     workstreams: workstreamsData,
     tasks: tasksData
@@ -71,10 +85,11 @@ export async function createRoom(
  */
 export async function joinRoom(
   roomId: string,
-  peerId: string,
-  name: string,
-  isOrganizer: boolean = false
+  name: string
 ): Promise<boolean> {
+  const userId = auth.currentUser?.uid
+  if (!userId) throw new Error('User not authenticated')
+
   // Check if room exists
   const exists = await checkRoomExists(roomId)
   if (!exists) return false
@@ -90,12 +105,12 @@ export async function joinRoom(
   }
 
   // Add participant
-  const participantRef = ref(database, `rooms/${roomId}/participants/${peerId}`)
+  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
   await set(participantRef, {
-    peer_id: peerId,
+    peer_id: userId,
     name,
-    is_organizer: isOrganizer,
-    color: generateColorFromPeerId(peerId),
+    is_organizer: false,
+    color: generateColorFromPeerId(userId),
     joined_at: serverTimestamp(),
     last_heartbeat: serverTimestamp(),
     connection_status: 'online'
@@ -110,8 +125,11 @@ export async function joinRoom(
 /**
  * Leave a room (cleanup participant data)
  */
-export async function leaveRoom(roomId: string, peerId: string): Promise<void> {
-  const participantRef = ref(database, `rooms/${roomId}/participants/${peerId}`)
+export async function leaveRoom(roomId: string): Promise<void> {
+  const userId = auth.currentUser?.uid
+  if (!userId) throw new Error('User not authenticated')
+
+  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
   await remove(participantRef)
 }
 
@@ -132,16 +150,22 @@ export async function setOrganizer(
   newOrganizerId: string,
   storePrevious: boolean = false
 ): Promise<void> {
+  const userId = auth.currentUser?.uid
+  if (!userId) throw new Error('User not authenticated')
+
+  // Only current organizer can change organizer
   const metadataRef = ref(database, `rooms/${roomId}/metadata`)
+  const snapshot = await get(metadataRef)
+  const currentOrgId = snapshot.val()?.organizer_id
+
+  if (currentOrgId !== userId) {
+    throw new Error('Only the organizer can change the organizer role')
+  }
 
   if (storePrevious) {
-    // Get current organizer first
-    const snapshot = await get(metadataRef)
-    const currentOrganizerId = snapshot.val()?.organizer_id
-
     await update(metadataRef, {
       organizer_id: newOrganizerId,
-      previous_organizer_id: currentOrganizerId
+      previous_organizer_id: currentOrgId
     })
   } else {
     await update(metadataRef, {
@@ -180,13 +204,15 @@ export async function startRound(roomId: string, taskId: string): Promise<void> 
  */
 export async function submitEstimate(
   roomId: string,
-  participantId: string,
   workstreamId: string,
   value: FibonacciValue
 ): Promise<void> {
+  const userId = auth.currentUser?.uid
+  if (!userId) throw new Error('User not authenticated')
+
   const estimateRef = ref(
     database,
-    `rooms/${roomId}/current_round/estimates/${participantId}/workstreams/${workstreamId}`
+    `rooms/${roomId}/current_round/estimates/${userId}/workstreams/${workstreamId}`
   )
 
   await set(estimateRef, {
@@ -202,12 +228,14 @@ export async function submitEstimate(
  */
 export async function markParticipantDone(
   roomId: string,
-  participantId: string,
   isDone: boolean
 ): Promise<void> {
+  const userId = auth.currentUser?.uid
+  if (!userId) throw new Error('User not authenticated')
+
   const participantEstimateRef = ref(
     database,
-    `rooms/${roomId}/current_round/estimates/${participantId}`
+    `rooms/${roomId}/current_round/estimates/${userId}`
   )
 
   await update(participantEstimateRef, {
@@ -330,10 +358,12 @@ export async function advanceToNextTask(roomId: string): Promise<boolean> {
  */
 export async function updateParticipant(
   roomId: string,
-  participantId: string,
   updates: Partial<Participant>
 ): Promise<void> {
-  const participantRef = ref(database, `rooms/${roomId}/participants/${participantId}`)
+  const userId = auth.currentUser?.uid
+  if (!userId) throw new Error('User not authenticated')
+
+  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
   await update(participantRef, updates)
 }
 

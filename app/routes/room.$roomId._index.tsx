@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
-import { Separator } from "~/components/ui/separator";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Play, Users, List, CheckSquare } from "lucide-react";
@@ -26,11 +25,11 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Lobby() {
-  const { roomId, peerId } = useFirebaseRoom();
+  const { roomId, userId } = useFirebaseRoom();
   const workstreams = useWorkstreams(roomId);
   const tasks = useTasks(roomId);
   const participants = useParticipants(roomId);
-  const isOrganizer = useIsOrganizer(roomId, peerId);
+  const isOrganizer = useIsOrganizer(roomId, userId);
 
   const handleStartEstimation = async () => {
     try {
@@ -59,43 +58,47 @@ export default function Lobby() {
         {/* Left Column - Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Participants */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-muted-foreground" />
-                <CardTitle>Participants</CardTitle>
-              </div>
-              <CardDescription>{participants.length} connected</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="pr-4" style={{ maxHeight: "300px" }}>
-                <div className="space-y-3">
-                  {participants.map((participant) => (
-                    <div
-                      key={participant.peer_id}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
-                    >
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback className={participant.color}>
-                          {participant.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {participant.name}
-                        </p>
-                        {participant.is_organizer && (
-                          <Badge variant="secondary" className="text-xs">
-                            Organizer
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+          {!!participants && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle>Participants</CardTitle>
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                <CardDescription>
+                  {participants.length} connected
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="pr-4" style={{ maxHeight: "300px" }}>
+                  <div className="space-y-3">
+                    {participants.map((participant) => (
+                      <div
+                        key={participant.peer_id}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
+                      >
+                        <Avatar className="w-10 h-10">
+                          <AvatarFallback className={participant.color}>
+                            {participant.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {participant.name}
+                          </p>
+                          {participant.is_organizer && (
+                            <Badge variant="secondary" className="text-xs">
+                              Organizer
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Workstreams - Only show if there are any */}
           {workstreams.length > 0 && (
@@ -178,19 +181,19 @@ export default function Lobby() {
         <div className="space-y-6">
           {/* Start Button */}
           <Card>
-            <CardContent  >
+            <CardContent>
               {isOrganizer ? (
                 <div className="flex flex-col items-center gap-4">
                   <Button
                     size="lg"
                     onClick={handleStartEstimation}
                     className="w-full"
-                    disabled={participants.length === 0}
+                    disabled={!participants || participants.length === 0}
                   >
                     <Play className="h-5 w-5 mr-2" />
                     Start Estimation
                   </Button>
-                  {participants.length === 0 && (
+                  {participants?.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       Waiting for participants to join...
                     </p>

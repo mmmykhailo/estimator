@@ -1,5 +1,5 @@
 import { ref, serverTimestamp, onDisconnect, set, get } from 'firebase/database'
-import { database } from './config'
+import { database, auth } from './config'
 import type { Participant } from '~/types/room'
 
 // Constants
@@ -12,15 +12,15 @@ export const STALE_THRESHOLD = 6000 // 6 seconds (3 missed heartbeats)
  */
 export function startHeartbeat(
   roomId: string,
-  peerId: string,
+  userId: string,
   interval: number = HEARTBEAT_INTERVAL
 ): () => void {
   // Update presence immediately
-  updatePresence(roomId, peerId)
+  updatePresence(roomId, userId)
 
   // Set up interval for periodic updates
   const intervalId = setInterval(() => {
-    updatePresence(roomId, peerId)
+    updatePresence(roomId, userId)
   }, interval)
 
   // Return cleanup function
@@ -32,14 +32,14 @@ export function startHeartbeat(
 /**
  * Update participant presence (heartbeat)
  */
-export async function updatePresence(roomId: string, peerId: string): Promise<void> {
-  const participantRef = ref(database, `rooms/${roomId}/participants/${peerId}`)
+export async function updatePresence(roomId: string, userId: string): Promise<void> {
+  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
 
   // Check if participant still exists
   const snapshot = await get(participantRef)
   if (!snapshot.exists()) return
 
-  const lastHeartbeatRef = ref(database, `rooms/${roomId}/participants/${peerId}/last_heartbeat`)
+  const lastHeartbeatRef = ref(database, `rooms/${roomId}/participants/${userId}/last_heartbeat`)
   await set(lastHeartbeatRef, serverTimestamp())
 
   // Also update room's last activity
@@ -51,8 +51,8 @@ export async function updatePresence(roomId: string, peerId: string): Promise<vo
  * Set up disconnect handlers using Firebase onDisconnect API
  * This automatically updates participant status when connection is lost
  */
-export async function setupDisconnectHandlers(roomId: string, peerId: string): Promise<void> {
-  const participantRef = ref(database, `rooms/${roomId}/participants/${peerId}`)
+export async function setupDisconnectHandlers(roomId: string, userId: string): Promise<void> {
+  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
 
   // Remove participant entry entirely after disconnect
   await onDisconnect(participantRef).remove()
@@ -109,10 +109,10 @@ export async function cleanupStaleParticipants(
 /**
  * Mark participant as online
  */
-export async function markOnline(roomId: string, peerId: string): Promise<void> {
+export async function markOnline(roomId: string, userId: string): Promise<void> {
   const connectionStatusRef = ref(
     database,
-    `rooms/${roomId}/participants/${peerId}/connection_status`
+    `rooms/${roomId}/participants/${userId}/connection_status`
   )
   await set(connectionStatusRef, 'online')
 }
@@ -120,10 +120,10 @@ export async function markOnline(roomId: string, peerId: string): Promise<void> 
 /**
  * Mark participant as offline
  */
-export async function markOffline(roomId: string, peerId: string): Promise<void> {
+export async function markOffline(roomId: string, userId: string): Promise<void> {
   const connectionStatusRef = ref(
     database,
-    `rooms/${roomId}/participants/${peerId}/connection_status`
+    `rooms/${roomId}/participants/${userId}/connection_status`
   )
   await set(connectionStatusRef, 'offline')
 }
@@ -131,13 +131,13 @@ export async function markOffline(roomId: string, peerId: string): Promise<void>
 /**
  * Cancel disconnect handlers (useful when leaving intentionally)
  */
-export async function cancelDisconnectHandlers(roomId: string, peerId: string): Promise<void> {
-  const participantRef = ref(database, `rooms/${roomId}/participants/${peerId}`)
+export async function cancelDisconnectHandlers(roomId: string, userId: string): Promise<void> {
+  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
   const connectionStatusRef = ref(
     database,
-    `rooms/${roomId}/participants/${peerId}/connection_status`
+    `rooms/${roomId}/participants/${userId}/connection_status`
   )
-  const lastHeartbeatRef = ref(database, `rooms/${roomId}/participants/${peerId}/last_heartbeat`)
+  const lastHeartbeatRef = ref(database, `rooms/${roomId}/participants/${userId}/last_heartbeat`)
 
   // Cancel all disconnect handlers
   await onDisconnect(participantRef).cancel()

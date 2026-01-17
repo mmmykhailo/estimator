@@ -3,14 +3,14 @@ import { startHeartbeat, setupDisconnectHandlers } from '../firebase/presence'
 
 interface FirebaseRoomContextValue {
   roomId: string
-  peerId: string
+  userId: string | null
 }
 
 const FirebaseRoomContext = createContext<FirebaseRoomContextValue | null>(null)
 
 interface FirebaseRoomProviderProps {
   roomId: string
-  peerId: string
+  userId: string | null
   children: ReactNode
 }
 
@@ -18,22 +18,24 @@ interface FirebaseRoomProviderProps {
  * Firebase Room Provider
  * Manages room lifecycle, heartbeat, and disconnect handlers
  */
-export function FirebaseRoomProvider({ roomId, peerId, children }: FirebaseRoomProviderProps) {
+export function FirebaseRoomProvider({ roomId, userId, children }: FirebaseRoomProviderProps) {
   useEffect(() => {
+    if (!userId) return
+
     // Set up disconnect handlers when component mounts
-    setupDisconnectHandlers(roomId, peerId)
+    setupDisconnectHandlers(roomId, userId)
 
     // Start heartbeat
-    const cleanup = startHeartbeat(roomId, peerId)
+    const cleanup = startHeartbeat(roomId, userId)
 
     // Cleanup on unmount
     return () => {
       cleanup()
     }
-  }, [roomId, peerId])
+  }, [roomId, userId])
 
   return (
-    <FirebaseRoomContext.Provider value={{ roomId, peerId }}>
+    <FirebaseRoomContext.Provider value={{ roomId, userId }}>
       {children}
     </FirebaseRoomContext.Provider>
   )

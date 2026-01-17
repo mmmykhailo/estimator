@@ -28,11 +28,11 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Results() {
-  const { roomId, peerId } = useFirebaseRoom();
+  const { roomId, userId } = useFirebaseRoom();
   const workstreams = useWorkstreams(roomId);
   const lastRound = useLastCompletedRound(roomId);
   const participants = useParticipants(roomId);
-  const isOrganizer = useIsOrganizer(roomId, peerId);
+  const isOrganizer = useIsOrganizer(roomId, userId);
   const tasks = useTasks(roomId);
   const currentTask = useCurrentTask(roomId);
   const metadata = useRoomMetadata(roomId);

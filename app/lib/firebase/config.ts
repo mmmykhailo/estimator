@@ -1,5 +1,6 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getDatabase, type Database } from 'firebase/database'
+import { getAuth, type Auth } from 'firebase/auth'
 
 /**
  * Firebase configuration from environment variables
@@ -45,3 +46,8 @@ export const app: FirebaseApp = initializeApp(firebaseConfig)
  * Firebase Realtime Database instance
  */
 export const database: Database = getDatabase(app)
+
+/**
+ * Firebase Authentication instance
+ */
+export const auth: Auth = getAuth(app)

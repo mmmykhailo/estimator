@@ -14,6 +14,8 @@ import {
   detectStaleParticipants,
   cleanupStaleParticipants,
 } from "~/lib/firebase/presence";
+import { auth } from "~/lib/firebase/config";
+import { signInAnonymously } from "firebase/auth";
 import type { Workstream, Task } from "~/types/room";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -83,7 +85,7 @@ export default function RoomLayout() {
   const navigate = useNavigate();
   const roomId = params.roomId!;
 
-  const [peerId] = useState(() => getOrCreatePeerId(roomId));
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -91,8 +93,47 @@ export default function RoomLayout() {
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState("");
 
-  // Initialize room
+  // Initialize Firebase Auth
   useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        if (auth.currentUser) {
+          if (mounted) {
+            setUserId(auth.currentUser.uid);
+          }
+        } else {
+          // Sign in anonymously
+          const result = await signInAnonymously(auth);
+          if (mounted) {
+            setUserId(result.user.uid);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to initialize auth:", err);
+        if (mounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to initialize authentication",
+          );
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Initialize room after auth is ready
+  useEffect(() => {
+    if (!userId) return;
+
     let mounted = true;
 
     const initializeRoom = async () => {
@@ -110,7 +151,7 @@ export default function RoomLayout() {
 
           const participantRef = participantsRef(
             database,
-            `rooms/${roomId}/participants/${peerId}`,
+            `rooms/${roomId}/participants/${userId}`,
           );
           const snapshot = await getFunc(participantRef);
 
@@ -132,17 +173,14 @@ export default function RoomLayout() {
           const workstreams = state.workstreams as Workstream[];
           const tasks = state.tasks as Task[];
 
-          // Create room in Firebase
-          await createRoom(roomId, peerId, workstreams, tasks);
-
-          // Join as organizer
-          await joinRoom(roomId, peerId, "Organizer", true);
+          // Create room in Firebase (organizer is automatically added as participant)
+          await createRoom(roomId, workstreams, tasks);
         } else if (state?.joinRoom) {
           // Joining existing room with name from state
           const name = state.name as string;
 
           // Join room
-          const success = await joinRoom(roomId, peerId, name, false);
+          const success = await joinRoom(roomId, name);
 
           if (!success) {
             // Check if room is ended
@@ -199,7 +237,7 @@ export default function RoomLayout() {
     return () => {
       mounted = false;
     };
-  }, [roomId, peerId, location.state]);
+  }, [roomId, userId, location.state]);
 
   const handleJoinWithName = async () => {
     const trimmedName = name.trim();
@@ -214,7 +252,7 @@ export default function RoomLayout() {
 
     try {
       setLoading(true);
-      const success = await joinRoom(roomId, peerId, trimmedName, false);
+      const success = await joinRoom(roomId, trimmedName);
       if (success) {
         // Check room status to determine where to redirect
         const roomMetadata = await getRoomMetadata(roomId);
@@ -321,24 +359,31 @@ export default function RoomLayout() {
   }
 
   return (
-    <FirebaseRoomProvider roomId={roomId} peerId={peerId}>
-      <RoomContent roomId={roomId} peerId={peerId} />
+    <FirebaseRoomProvider roomId={roomId} userId={userId}>
+      <RoomContent roomId={roomId} userId={userId} />
     </FirebaseRoomProvider>
   );
 }
 
-function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
+function RoomContent({
+  roomId,
+  userId,
+}: {
+  roomId: string;
+  userId: string | null;
+}) {
   const navigate = useNavigate();
   const status = useRoomStatus(roomId);
   const organizerId = useOrganizerId(roomId);
   const participants = useParticipants(roomId);
-  const connectionStatus = useConnectionStatus(roomId);
 
   const [copied, setCopied] = useState(false);
   const [showOrganizerModal, setShowOrganizerModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
-  const isOrganizer = organizerId === peerId;
+  const isOrganizer = userId && organizerId ? organizerId === userId : false;
+
+  console.log(isOrganizer, userId, organizerId);
 
   // Stale participant cleanup (organizer only)
   useEffect(() => {
@@ -360,12 +405,16 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
 
   // Check for organizer disconnect
   useEffect(() => {
+    if (participants === null) {
+      return;
+    }
+
     const organizer = participants.find((p) => p.peer_id === organizerId);
 
     // If I'm not the organizer and either:
     // 1. Organizer is missing from participants list (they left)
     // 2. Organizer exists but hasn't sent heartbeat in 6 seconds
-    if (peerId !== organizerId) {
+    if (userId !== organizerId) {
       if (!organizer) {
         // Organizer has left the room
         setShowOrganizerModal(true);
@@ -382,7 +431,7 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
     } else {
       setShowOrganizerModal(false);
     }
-  }, [participants, organizerId, peerId]);
+  }, [participants, organizerId, userId]);
 
   // Navigate based on status
   useEffect(() => {
@@ -414,13 +463,14 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
 
   const handleOvertakeOrganizer = useCallback(async () => {
     try {
-      await setOrganizer(roomId, peerId, true);
-      await updateParticipant(roomId, peerId, { is_organizer: true });
+      if (!userId) throw new Error("User not authenticated");
+      await setOrganizer(roomId, userId, true);
+      await updateParticipant(roomId, { is_organizer: true });
       setShowOrganizerModal(false);
     } catch (err) {
       console.error("Failed to overtake organizer role:", err);
     }
-  }, [roomId, peerId]);
+  }, [roomId, userId]);
 
   const handleLeaveRoom = useCallback(() => {
     setShowLeaveModal(false);
@@ -461,39 +511,41 @@ function RoomContent({ roomId, peerId }: { roomId: string; peerId: string }) {
             </div>
 
             {/* Participants */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {participants.length}{" "}
-                {participants.length === 1 ? "participant" : "participants"}
-              </span>
-              <TooltipProvider>
-                <div className="flex -space-x-2">
-                  {participants.slice(0, 5).map((participant) => (
-                    <Tooltip key={participant.peer_id}>
-                      <TooltipTrigger asChild>
-                        <Avatar className="border-2 border-background w-8 h-8 cursor-help">
-                          <AvatarFallback className={participant.color}>
-                            {participant.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </TooltipTrigger>
-                      <TooltipPortal>
-                        <TooltipContent side="bottom">
-                          {participant.name}
-                        </TooltipContent>
-                      </TooltipPortal>
-                    </Tooltip>
-                  ))}
-                  {participants.length > 5 && (
-                    <Avatar className="border-2 border-background w-8 h-8">
-                      <AvatarFallback>
-                        +{participants.length - 5}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              </TooltipProvider>
-            </div>
+            {!!participants && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {participants.length}{" "}
+                  {participants.length === 1 ? "participant" : "participants"}
+                </span>
+                <TooltipProvider>
+                  <div className="flex -space-x-2">
+                    {participants.slice(0, 5).map((participant) => (
+                      <Tooltip key={participant.peer_id}>
+                        <TooltipTrigger asChild>
+                          <Avatar className="border-2 border-background w-8 h-8 cursor-help">
+                            <AvatarFallback className={participant.color}>
+                              {participant.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipPortal>
+                          <TooltipContent side="bottom">
+                            {participant.name}
+                          </TooltipContent>
+                        </TooltipPortal>
+                      </Tooltip>
+                    ))}
+                    {participants.length > 5 && (
+                      <Avatar className="border-2 border-background w-8 h-8">
+                        <AvatarFallback>
+                          +{participants.length - 5}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                  </div>
+                </TooltipProvider>
+              </div>
+            )}
           </div>
         </div>
       </header>

@@ -34,12 +34,12 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function EstimationSession() {
-  const { roomId, peerId } = useFirebaseRoom();
+  const { roomId, userId } = useFirebaseRoom();
   const currentTask = useCurrentTask(roomId);
   const workstreams = useWorkstreams(roomId);
   const currentRound = useCurrentRound(roomId);
   const participants = useParticipants(roomId);
-  const isOrganizer = useIsOrganizer(roomId, peerId);
+  const isOrganizer = useIsOrganizer(roomId, userId);
   const allDone = useAllParticipantsDone(roomId);
   const tasks = useTasks(roomId);
 
@@ -53,9 +53,9 @@ export default function EstimationSession() {
 
   // Sync my estimates from Firebase
   useEffect(() => {
-    if (!currentRound) return;
+    if (!currentRound || !userId) return;
 
-    const myData = currentRound.estimates[peerId];
+    const myData = currentRound.estimates[userId];
     if (!myData) return;
 
     const estimates = new Map<string, FibonacciValue>();
@@ -71,7 +71,7 @@ export default function EstimationSession() {
     if (Object.keys(myData.workstreams).length === 0) {
       setSelectedWorkstream("general");
     }
-  }, [currentRound, peerId]);
+  }, [currentRound, userId]);
 
   // Auto-end round when all done
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function EstimationSession() {
     value: FibonacciValue,
   ) => {
     try {
-      await submitEstimate(roomId, peerId, workstreamId, value);
+      await submitEstimate(roomId, workstreamId, value);
       setMyEstimates(new Map(myEstimates).set(workstreamId, value));
     } catch (err) {
       console.error("Failed to submit estimate:", err);
@@ -98,7 +98,7 @@ export default function EstimationSession() {
   const handleToggleDone = async () => {
     try {
       const newDone = !isDone;
-      await markParticipantDone(roomId, peerId, newDone);
+      await markParticipantDone(roomId, newDone);
       setIsDone(newDone);
     } catch (err) {
       console.error("Failed to mark as done:", err);
@@ -177,7 +177,9 @@ export default function EstimationSession() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-primary hover:underline hover:text-primary/80"
                 >
-                  <CardTitle className="text-2xl">{currentTask.title}</CardTitle>
+                  <CardTitle className="text-2xl">
+                    {currentTask.title}
+                  </CardTitle>
                   <ExternalLink className="h-4 w-4 flex-shrink-0" />
                 </a>
               ) : (
@@ -211,7 +213,7 @@ export default function EstimationSession() {
                   const submitters = getWorkstreamSubmitters(workstream.id);
                   const myEstimate = myEstimates.get(workstream.id);
                   const submitterParticipants = submitters
-                    .map((id) => participants.find((p) => p.peer_id === id))
+                    .map((id) => participants?.find((p) => p.peer_id === id))
                     .filter(Boolean);
 
                   return (
@@ -315,93 +317,95 @@ export default function EstimationSession() {
         </div>
 
         {/* Participants Status */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-muted-foreground" />
-                <CardTitle>Participants</CardTitle>
-              </div>
-              <CardDescription>
-                {doneParticipants.length} / {participants.length} done
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {participants.map((participant) => {
-                const participantDone = doneParticipants.includes(
-                  participant.peer_id,
-                );
-                const isMe = participant.peer_id === peerId;
+        {!!participants && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle>Participants</CardTitle>
+                </div>
+                <CardDescription>
+                  {doneParticipants.length} / {participants.length} done
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {participants.map((participant) => {
+                  const participantDone = doneParticipants.includes(
+                    participant.peer_id,
+                  );
+                  const isMe = participant.peer_id === userId;
 
-                return (
-                  <div
-                    key={participant.peer_id}
-                    className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className={participant.color}>
-                        {participant.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {participant.name} {isMe && "(You)"}
-                      </p>
+                  return (
+                    <div
+                      key={participant.peer_id}
+                      className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
+                    >
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className={participant.color}>
+                          {participant.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {participant.name} {isMe && "(You)"}
+                        </p>
+                      </div>
+                      {participantDone && (
+                        <Check className="h-4 w-4 text-green-500" />
+                      )}
                     </div>
-                    {participantDone && (
-                      <Check className="h-4 w-4 text-green-500" />
-                    )}
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
+                  );
+                })}
+              </CardContent>
+            </Card>
 
-          {/* Actions */}
-          <Card>
-            <CardContent className="space-y-3">
-              <Button
-                variant={isDone ? "secondary" : "default"}
-                className="w-full"
-                onClick={handleToggleDone}
-                disabled={!hasAnyEstimate}
-              >
-                {isDone ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Mark as Not Done
-                  </>
-                ) : (
-                  "I'm Done"
-                )}
-              </Button>
-
-              {!hasAnyEstimate && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Submit at least one estimate first
-                </p>
-              )}
-
-              {isOrganizer && (
-                <>
-                  <Separator />
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleEndRound}
-                  >
-                    End Round
-                  </Button>
-                  {allDone && (
-                    <p className="text-xs text-green-600 text-center font-medium">
-                      All participants are done!
-                    </p>
+            {/* Actions */}
+            <Card>
+              <CardContent className="space-y-3">
+                <Button
+                  variant={isDone ? "secondary" : "default"}
+                  className="w-full"
+                  onClick={handleToggleDone}
+                  disabled={!hasAnyEstimate}
+                >
+                  {isDone ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Mark as Not Done
+                    </>
+                  ) : (
+                    "I'm Done"
                   )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                </Button>
+
+                {!hasAnyEstimate && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Submit at least one estimate first
+                  </p>
+                )}
+
+                {isOrganizer && (
+                  <>
+                    <Separator />
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleEndRound}
+                    >
+                      End Round
+                    </Button>
+                    {allDone && (
+                      <p className="text-xs text-green-600 text-center font-medium">
+                        All participants are done!
+                      </p>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
