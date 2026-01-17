@@ -188,9 +188,16 @@ export default function RoomLayout() {
       setLoading(true);
       const success = await joinRoom(roomId, peerId, trimmedName, false);
       if (success) {
+        // Check room status to determine where to redirect
+        const roomMetadata = await getRoomMetadata(roomId);
         setShowNameDialog(false);
         setInitialized(true);
         setLoading(false);
+        
+        // If room is active, navigate to session instead of waiting for effect
+        if (roomMetadata?.status === 'active') {
+          navigate(`/room/${roomId}/session`, { replace: true });
+        }
       } else {
         setNameError("Failed to join room");
         setLoading(false);
