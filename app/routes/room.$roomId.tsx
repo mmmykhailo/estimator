@@ -397,7 +397,6 @@ function RoomContent({
     // 2. Organizer exists but hasn't sent heartbeat in 6 seconds
     if (userId !== organizerId) {
       if (!organizer) {
-        console.log({ organizer, participants });
         // Organizer has left the room
         setShowOrganizerModal(true);
       } else {
@@ -405,7 +404,6 @@ function RoomContent({
         const timeSinceHeartbeat = now - organizer.last_heartbeat;
 
         if (timeSinceHeartbeat > 6000) {
-          console.log({ organizer, participants });
           setShowOrganizerModal(true);
         } else {
           setShowOrganizerModal(false);

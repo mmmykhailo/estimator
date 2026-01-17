@@ -98,7 +98,6 @@ export default function EstimationSession() {
   );
   const [isDone, setIsDone] = useState(false);
 
-  useEffect(() => console.log(myEstimates), [myEstimates]);
   // Sync my estimates from Firebase
   useEffect(() => {
     if (!currentRound || !userId) return;
@@ -127,7 +126,6 @@ export default function EstimationSession() {
 
   useEffect(() => {
     if (workstreams.length === 0) {
-      console.log("setting general");
       setSelectedWorkstream("general");
     }
   }, [workstreams]);
