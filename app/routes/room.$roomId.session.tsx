@@ -34,7 +34,10 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "Estimation Session - Estimation" }];
 }
 
-export async function clientAction({ params, request }: Route.ClientActionArgs) {
+export async function clientAction({
+  params,
+  request,
+}: Route.ClientActionArgs) {
   const roomId = params.roomId;
   const formData = await request.formData();
   const actionType = formData.get("_action");
@@ -64,7 +67,9 @@ export async function clientAction({ params, request }: Route.ClientActionArgs) 
     }
   } catch (error) {
     console.error("Action error:", error);
-    return { error: error instanceof Error ? error.message : "An error occurred" };
+    return {
+      error: error instanceof Error ? error.message : "An error occurred",
+    };
   }
 }
 
@@ -106,11 +111,14 @@ export default function EstimationSession() {
 
     setMyEstimates(estimates);
     setIsDone(myData.is_done || false);
+  }, [currentRound, userId]);
 
-    if (Object.keys(myData.workstreams).length === 0) {
+  useEffect(() => {
+    if (workstreams.length === 0) {
+      console.log("setting general");
       setSelectedWorkstream("general");
     }
-  }, [currentRound, userId]);
+  }, [workstreams]);
 
   // Auto-end round when all done
   useEffect(() => {
@@ -124,10 +132,7 @@ export default function EstimationSession() {
     }
   }, [allDone, isOrganizer, isSubmitting, submit]);
 
-  const handleEstimate = (
-    workstreamId: string,
-    value: FibonacciValue,
-  ) => {
+  const handleEstimate = (workstreamId: string, value: FibonacciValue) => {
     const formData = new FormData();
     formData.append("_action", "submit-estimate");
     formData.append("workstreamId", workstreamId);
