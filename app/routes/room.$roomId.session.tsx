@@ -1,7 +1,13 @@
 import type { Route } from "./+types/room.$roomId.session";
 import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Separator } from "~/components/ui/separator";
@@ -14,9 +20,13 @@ import {
   useParticipants,
   useIsOrganizer,
   useAllParticipantsDone,
-  useTasks
+  useTasks,
 } from "~/lib/room/hooks";
-import { submitEstimate, markParticipantDone, endRound } from "~/lib/firebase/operations";
+import {
+  submitEstimate,
+  markParticipantDone,
+  endRound,
+} from "~/lib/firebase/operations";
 import { FIBONACCI_VALUES, type FibonacciValue } from "~/types/room";
 
 export function meta({}: Route.MetaArgs) {
@@ -33,8 +43,12 @@ export default function EstimationSession() {
   const allDone = useAllParticipantsDone(roomId);
   const tasks = useTasks(roomId);
 
-  const [selectedWorkstream, setSelectedWorkstream] = useState<string | null>(null);
-  const [myEstimates, setMyEstimates] = useState<Map<string, FibonacciValue>>(new Map());
+  const [selectedWorkstream, setSelectedWorkstream] = useState<string | null>(
+    null,
+  );
+  const [myEstimates, setMyEstimates] = useState<Map<string, FibonacciValue>>(
+    new Map(),
+  );
   const [isDone, setIsDone] = useState(false);
 
   // If no workstreams defined, auto-select the implicit "general" workstream
@@ -52,9 +66,11 @@ export default function EstimationSession() {
     if (!myData) return;
 
     const estimates = new Map<string, FibonacciValue>();
-    Object.entries(myData.workstreams || {}).forEach(([workstreamId, estimate]: [string, any]) => {
-      estimates.set(workstreamId, estimate.value);
-    });
+    Object.entries(myData.workstreams || {}).forEach(
+      ([workstreamId, estimate]: [string, any]) => {
+        estimates.set(workstreamId, estimate.value);
+      },
+    );
 
     setMyEstimates(estimates);
     setIsDone(myData.is_done || false);
@@ -70,12 +86,15 @@ export default function EstimationSession() {
     }
   }, [allDone, isOrganizer, roomId]);
 
-  const handleEstimate = async (workstreamId: string, value: FibonacciValue) => {
+  const handleEstimate = async (
+    workstreamId: string,
+    value: FibonacciValue,
+  ) => {
     try {
       await submitEstimate(roomId, peerId, workstreamId, value);
       setMyEstimates(new Map(myEstimates).set(workstreamId, value));
     } catch (err) {
-      console.error('Failed to submit estimate:', err);
+      console.error("Failed to submit estimate:", err);
     }
   };
 
@@ -85,7 +104,7 @@ export default function EstimationSession() {
       await markParticipantDone(roomId, peerId, newDone);
       setIsDone(newDone);
     } catch (err) {
-      console.error('Failed to mark as done:', err);
+      console.error("Failed to mark as done:", err);
     }
   };
 
@@ -93,7 +112,7 @@ export default function EstimationSession() {
     try {
       await endRound(roomId);
     } catch (err) {
-      console.error('Failed to end round:', err);
+      console.error("Failed to end round:", err);
     }
   };
 
@@ -101,11 +120,16 @@ export default function EstimationSession() {
     if (!currentRound) return [];
 
     const submitters: string[] = [];
-    Object.entries(currentRound.estimates).forEach(([participantId, participantData]) => {
-      if (participantData.workstreams && workstreamId in participantData.workstreams) {
-        submitters.push(participantId);
-      }
-    });
+    Object.entries(currentRound.estimates).forEach(
+      ([participantId, participantData]) => {
+        if (
+          participantData.workstreams &&
+          workstreamId in participantData.workstreams
+        ) {
+          submitters.push(participantId);
+        }
+      },
+    );
 
     return submitters;
   };
@@ -114,11 +138,13 @@ export default function EstimationSession() {
     if (!currentRound) return [];
 
     const done: string[] = [];
-    Object.entries(currentRound.estimates).forEach(([participantId, participantData]) => {
-      if (participantData.is_done) {
-        done.push(participantId);
-      }
-    });
+    Object.entries(currentRound.estimates).forEach(
+      ([participantId, participantData]) => {
+        if (participantData.is_done) {
+          done.push(participantId);
+        }
+      },
+    );
 
     return done;
   };
@@ -212,11 +238,18 @@ export default function EstimationSession() {
                           </div>
                           {submitterParticipants.length > 0 && (
                             <div className="flex items-center gap-2 mt-2">
-                              <span className="text-xs text-muted-foreground">Submitted:</span>
+                              <span className="text-xs text-muted-foreground">
+                                Submitted:
+                              </span>
                               <div className="flex -space-x-2">
                                 {submitterParticipants.map((p) => (
-                                  <Avatar key={p!.peer_id} className="border-2 border-background w-6 h-6">
-                                    <AvatarFallback className={`${p!.color} text-xs`}>
+                                  <Avatar
+                                    key={p!.peer_id}
+                                    className="border-2 border-background w-6 h-6"
+                                  >
+                                    <AvatarFallback
+                                      className={`${p!.color} text-xs`}
+                                    >
                                       {p!.name.charAt(0).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
@@ -240,7 +273,7 @@ export default function EstimationSession() {
                 <CardTitle>Your Estimate</CardTitle>
                 <CardDescription>
                   Select a Fibonacci value for{" "}
-                  {workstreams.length > 0 
+                  {workstreams.length > 0
                     ? workstreams.find((w) => w.id === selectedWorkstream)?.name
                     : "this task"}
                 </CardDescription>
@@ -248,14 +281,17 @@ export default function EstimationSession() {
               <CardContent>
                 <div className="flex flex-wrap gap-3">
                   {FIBONACCI_VALUES.map((value) => {
-                    const isSelected = myEstimates.get(selectedWorkstream) === value;
+                    const isSelected =
+                      myEstimates.get(selectedWorkstream) === value;
                     return (
                       <Button
                         key={value}
                         variant={isSelected ? "default" : "outline"}
                         size="lg"
                         className="text-xl font-bold min-w-[4rem] h-16"
-                        onClick={() => handleEstimate(selectedWorkstream, value)}
+                        onClick={() =>
+                          handleEstimate(selectedWorkstream, value)
+                        }
                       >
                         {value}
                       </Button>
@@ -263,7 +299,11 @@ export default function EstimationSession() {
                   })}
                   {/* Unknown/Question Mark Option */}
                   <Button
-                    variant={myEstimates.get(selectedWorkstream) === "?" ? "default" : "outline"}
+                    variant={
+                      myEstimates.get(selectedWorkstream) === "?"
+                        ? "default"
+                        : "outline"
+                    }
                     size="lg"
                     className="text-xl font-bold min-w-[4rem] h-16"
                     onClick={() => handleEstimate(selectedWorkstream, "?")}
@@ -290,7 +330,9 @@ export default function EstimationSession() {
             </CardHeader>
             <CardContent className="space-y-3">
               {participants.map((participant) => {
-                const participantDone = doneParticipants.includes(participant.peer_id);
+                const participantDone = doneParticipants.includes(
+                  participant.peer_id,
+                );
                 const isMe = participant.peer_id === peerId;
 
                 return (
@@ -319,7 +361,7 @@ export default function EstimationSession() {
 
           {/* Actions */}
           <Card>
-            <CardContent className="pt-6 space-y-3">
+            <CardContent className="space-y-3">
               <Button
                 variant={isDone ? "secondary" : "default"}
                 className="w-full"
