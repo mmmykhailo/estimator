@@ -9,7 +9,7 @@ const ROOM_CODE_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 /**
  * Room code length
  */
-const ROOM_CODE_LENGTH = 8;
+export const ROOM_CODE_LENGTH = 8;
 
 /**
  * Nanoid generator for room codes
@@ -26,7 +26,7 @@ export function createRoomCode(): string {
 
 /**
  * Validate a room code format
- * Returns true if the code is valid (6 alphanumeric characters)
+ * Returns true if the code is valid (8 alphanumeric characters)
  */
 export function isValidRoomCode(code: string): boolean {
   if (!code || typeof code !== "string") {

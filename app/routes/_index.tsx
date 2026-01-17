@@ -11,7 +11,11 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
-import { parseRoomCode, isValidRoomCode } from "~/lib/utils/room-code";
+import {
+  parseRoomCode,
+  isValidRoomCode,
+  ROOM_CODE_LENGTH,
+} from "~/lib/utils/room-code";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -29,7 +33,7 @@ export default function Home() {
     const parsedCode = parseRoomCode(roomCode);
 
     if (!isValidRoomCode(parsedCode)) {
-      setError("Please enter a valid 6-character room code");
+      setError(`Please enter a valid ${ROOM_CODE_LENGTH}-character room code`);
       return;
     }
 
@@ -94,12 +98,12 @@ export default function Home() {
                 <Label htmlFor="roomCode">Room Code</Label>
                 <Input
                   id="roomCode"
-                  placeholder="e.g. A3X7K9"
+                  placeholder="e.g. A3X7K9JD"
                   value={roomCode}
                   onChange={(e) => handleRoomCodeChange(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleJoinRoom()}
                   className={error ? "border-destructive" : ""}
-                  maxLength={6}
+                  maxLength={ROOM_CODE_LENGTH}
                 />
                 {error && <p className="text-sm text-destructive">{error}</p>}
               </div>

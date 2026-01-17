@@ -7,7 +7,6 @@ import type {
   Participant,
   Round,
   CompletedRound,
-  Estimate,
   RoomMetadata,
 } from "~/types/room";
 import {
@@ -73,8 +72,13 @@ export function useIsOrganizer(roomId: string, userId: string | null): boolean {
 /**
  * Hook to get workstreams
  */
-export function useWorkstreams(roomId: string, initialData?: Workstream[]): Workstream[] {
-  const [workstreams, setWorkstreams] = useState<Workstream[]>(initialData || []);
+export function useWorkstreams(
+  roomId: string,
+  initialData?: Workstream[],
+): Workstream[] {
+  const [workstreams, setWorkstreams] = useState<Workstream[]>(
+    initialData || [],
+  );
 
   useEffect(() => {
     return onWorkstreams(roomId, setWorkstreams);
@@ -129,7 +133,10 @@ export function useCurrentTask(roomId: string): Task | null {
 /**
  * Hook to get current round
  */
-export function useCurrentRound(roomId: string, initialData?: Round | null): Round | null {
+export function useCurrentRound(
+  roomId: string,
+  initialData?: Round | null,
+): Round | null {
   const [round, setRound] = useState<Round | null>(initialData || null);
 
   useEffect(() => {
@@ -157,8 +164,13 @@ export function useEstimates(roomId: string): Record<string, any> | null {
 /**
  * Hook to get participants
  */
-export function useParticipants(roomId: string, initialData?: Participant[]): Participant[] | null {
-  const [participants, setParticipants] = useState<Participant[] | null>(initialData || null);
+export function useParticipants(
+  roomId: string,
+  initialData?: Participant[],
+): Participant[] | null {
+  const [participants, setParticipants] = useState<Participant[] | null>(
+    initialData || null,
+  );
 
   useEffect(() => {
     return onParticipants(roomId, setParticipants);
@@ -312,8 +324,13 @@ export function useWorkstreamSubmitters(
 /**
  * Hook to get room metadata
  */
-export function useRoomMetadata(roomId: string, initialData?: RoomMetadata | null): RoomMetadata | null {
-  const [metadata, setMetadata] = useState<RoomMetadata | null>(initialData || null);
+export function useRoomMetadata(
+  roomId: string,
+  initialData?: RoomMetadata | null,
+): RoomMetadata | null {
+  const [metadata, setMetadata] = useState<RoomMetadata | null>(
+    initialData || null,
+  );
 
   useEffect(() => {
     return onRoomMetadata(roomId, setMetadata);
