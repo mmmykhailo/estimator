@@ -1,9 +1,9 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(npx shadcn@latest add:*)",
-      "Bash(bun run typecheck:*)",
-      "Bash(bun run build)"
-    ]
-  }
+	"permissions": {
+		"allow": [
+			"Bash(npx shadcn@latest add:*)",
+			"Bash(bun run typecheck:*)",
+			"Bash(bun run build)"
+		]
+	}
 }

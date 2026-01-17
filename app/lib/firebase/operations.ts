@@ -1,314 +1,354 @@
-import { ref, set, update, get, push, serverTimestamp, remove } from 'firebase/database'
-import { database, auth } from './config'
+import {
+	get,
+	push,
+	ref,
+	remove,
+	serverTimestamp,
+	set,
+	update,
+} from "firebase/database";
 import type {
-  Workstream,
-  Task,
-  RoomStatus,
-  FibonacciValue,
-  Participant,
-  RoomMetadata
-} from '~/types/room'
+	Estimate,
+	FibonacciValue,
+	Participant,
+	RoomMetadata,
+	RoomStatus,
+	Task,
+	Workstream,
+} from "~/types/room";
+import { auth, database } from "./config";
 
 /**
  * Check if a room exists in Firebase
  */
 export async function checkRoomExists(roomId: string): Promise<boolean> {
-  const roomRef = ref(database, `rooms/${roomId}/metadata`)
-  const snapshot = await get(roomRef)
-  return snapshot.exists()
+	const roomRef = ref(database, `rooms/${roomId}/metadata`);
+	const snapshot = await get(roomRef);
+	return snapshot.exists();
 }
 
 /**
  * Create a new room with workstreams and tasks
  */
 export async function createRoom(
-  roomId: string,
-  workstreams: Omit<Workstream, 'order'>[],
-  tasks: Omit<Task, 'order'>[]
+	roomId: string,
+	workstreams: Omit<Workstream, "order">[],
+	tasks: Omit<Task, "order">[],
 ): Promise<void> {
-  const userId = auth.currentUser?.uid
-  if (!userId) throw new Error('User not authenticated')
+	const userId = auth.currentUser?.uid;
+	if (!userId) throw new Error("User not authenticated");
 
-  const roomRef = ref(database, `rooms/${roomId}`)
+	const roomRef = ref(database, `rooms/${roomId}`);
 
-  // Prepare workstreams with order
-  const workstreamsData: Record<string, Workstream> = {}
-  workstreams.forEach((ws, index) => {
-    workstreamsData[ws.id] = {
-      ...ws,
-      order: index
-    }
-  })
+	// Prepare workstreams with order
+	const workstreamsData: Record<string, Workstream> = {};
+	workstreams.forEach((ws, index) => {
+		workstreamsData[ws.id] = {
+			...ws,
+			order: index,
+		};
+	});
 
-  // Prepare tasks with order
-  const tasksData: Record<string, Task> = {}
-  tasks.forEach((task, index) => {
-    tasksData[task.id] = {
-      id: task.id,
-      title: task.title,
-      order: index,
-      // Only include link if it exists and is not empty
-      ...(task.link && task.link.trim() !== '' ? { link: task.link } : {})
-    }
-  })
+	// Prepare tasks with order
+	const tasksData: Record<string, Task> = {};
+	tasks.forEach((task, index) => {
+		tasksData[task.id] = {
+			id: task.id,
+			title: task.title,
+			order: index,
+			// Only include link if it exists and is not empty
+			...(task.link && task.link.trim() !== "" ? { link: task.link } : {}),
+		};
+	});
 
-  // Create room structure with organizer as participant
-  // This allows the creator to write to the room
-  await set(roomRef, {
-    metadata: {
-      created_at: serverTimestamp(),
-      created_by: userId,
-      organizer_id: userId,
-      previous_organizer_id: null,
-      status: 'lobby',
-      current_task_index: 0,
-      last_activity: serverTimestamp()
-    },
-    participants: {
-      [userId]: {
-        peer_id: userId,
-        name: 'Organizer',
-        is_organizer: true,
-        color: generateColorFromPeerId(userId),
-        joined_at: serverTimestamp(),
-        last_heartbeat: serverTimestamp(),
-        connection_status: 'online'
-      }
-    },
-    workstreams: workstreamsData,
-    tasks: tasksData
-  })
+	// Create room structure with organizer as participant
+	// This allows the creator to write to the room
+	await set(roomRef, {
+		metadata: {
+			created_at: serverTimestamp(),
+			created_by: userId,
+			organizer_id: userId,
+			previous_organizer_id: null,
+			status: "lobby",
+			current_task_index: 0,
+			last_activity: serverTimestamp(),
+		},
+		participants: {
+			[userId]: {
+				peer_id: userId,
+				name: "Organizer",
+				is_organizer: true,
+				color: generateColorFromPeerId(userId),
+				joined_at: serverTimestamp(),
+				last_heartbeat: serverTimestamp(),
+				connection_status: "online",
+			},
+		},
+		workstreams: workstreamsData,
+		tasks: tasksData,
+	});
 }
 
 /**
  * Join an existing room
  */
-export async function joinRoom(
-  roomId: string,
-  name: string
-): Promise<boolean> {
-  const userId = auth.currentUser?.uid
-  if (!userId) throw new Error('User not authenticated')
+export async function joinRoom(roomId: string, name: string): Promise<boolean> {
+	const userId = auth.currentUser?.uid;
+	if (!userId) throw new Error("User not authenticated");
 
-  // Check if room exists
-  const exists = await checkRoomExists(roomId)
-  if (!exists) return false
+	// Check if room exists
+	const exists = await checkRoomExists(roomId);
+	if (!exists) return false;
 
-  // Check if room is in 'ended' status
-  const metadataRef = ref(database, `rooms/${roomId}/metadata`)
-  const metadataSnapshot = await get(metadataRef)
-  const metadata = metadataSnapshot.val()
-  
-  if (metadata?.status === 'ended') {
-    // Cannot join a session that has ended
-    return false
-  }
+	// Check if room is in 'ended' status
+	const metadataRef = ref(database, `rooms/${roomId}/metadata`);
+	const metadataSnapshot = await get(metadataRef);
+	const metadata = metadataSnapshot.val();
 
-  // Add participant
-  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
-  await set(participantRef, {
-    peer_id: userId,
-    name,
-    is_organizer: false,
-    color: generateColorFromPeerId(userId),
-    joined_at: serverTimestamp(),
-    last_heartbeat: serverTimestamp(),
-    connection_status: 'online'
-  })
+	if (metadata?.status === "ended") {
+		// Cannot join a session that has ended
+		return false;
+	}
 
-  // Update last activity
-  await updateLastActivity(roomId)
+	// Add participant
+	const participantRef = ref(
+		database,
+		`rooms/${roomId}/participants/${userId}`,
+	);
+	await set(participantRef, {
+		peer_id: userId,
+		name,
+		is_organizer: false,
+		color: generateColorFromPeerId(userId),
+		joined_at: serverTimestamp(),
+		last_heartbeat: serverTimestamp(),
+		connection_status: "online",
+	});
 
-  return true
+	// Update last activity
+	await updateLastActivity(roomId);
+
+	return true;
 }
 
 /**
  * Leave a room (cleanup participant data)
  */
 export async function leaveRoom(roomId: string): Promise<void> {
-  const userId = auth.currentUser?.uid
-  if (!userId) throw new Error('User not authenticated')
+	const userId = auth.currentUser?.uid;
+	if (!userId) throw new Error("User not authenticated");
 
-  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
-  await remove(participantRef)
+	const participantRef = ref(
+		database,
+		`rooms/${roomId}/participants/${userId}`,
+	);
+	await remove(participantRef);
 }
 
 /**
  * Update room status
  */
-export async function updateRoomStatus(roomId: string, status: RoomStatus): Promise<void> {
-  const statusRef = ref(database, `rooms/${roomId}/metadata/status`)
-  await set(statusRef, status)
-  await updateLastActivity(roomId)
+export async function updateRoomStatus(
+	roomId: string,
+	status: RoomStatus,
+): Promise<void> {
+	const statusRef = ref(database, `rooms/${roomId}/metadata/status`);
+	await set(statusRef, status);
+	await updateLastActivity(roomId);
 }
 
 /**
  * Set organizer for the room
  */
 export async function setOrganizer(
-  roomId: string,
-  newOrganizerId: string,
-  storePrevious: boolean = false
+	roomId: string,
+	newOrganizerId: string,
+	storePrevious: boolean = false,
 ): Promise<void> {
-  const userId = auth.currentUser?.uid
-  if (!userId) throw new Error('User not authenticated')
+	const userId = auth.currentUser?.uid;
+	if (!userId) throw new Error("User not authenticated");
 
-  // Only current organizer can change organizer
-  const metadataRef = ref(database, `rooms/${roomId}/metadata`)
-  const snapshot = await get(metadataRef)
-  const currentOrgId = snapshot.val()?.organizer_id
+	// Only current organizer can change organizer
+	const metadataRef = ref(database, `rooms/${roomId}/metadata`);
+	const snapshot = await get(metadataRef);
+	const currentOrgId = snapshot.val()?.organizer_id;
 
-  if (currentOrgId !== userId) {
-    throw new Error('Only the organizer can change the organizer role')
-  }
+	if (currentOrgId !== userId) {
+		throw new Error("Only the organizer can change the organizer role");
+	}
 
-  if (storePrevious) {
-    await update(metadataRef, {
-      organizer_id: newOrganizerId,
-      previous_organizer_id: currentOrgId
-    })
-  } else {
-    await update(metadataRef, {
-      organizer_id: newOrganizerId
-    })
-  }
+	if (storePrevious) {
+		await update(metadataRef, {
+			organizer_id: newOrganizerId,
+			previous_organizer_id: currentOrgId,
+		});
+	} else {
+		await update(metadataRef, {
+			organizer_id: newOrganizerId,
+		});
+	}
 
-  await updateLastActivity(roomId)
+	await updateLastActivity(roomId);
 }
 
 /**
  * Clear previous organizer ID
  */
 export async function clearPreviousOrganizer(roomId: string): Promise<void> {
-  const prevOrganizerRef = ref(database, `rooms/${roomId}/metadata/previous_organizer_id`)
-  await set(prevOrganizerRef, null)
+	const prevOrganizerRef = ref(
+		database,
+		`rooms/${roomId}/metadata/previous_organizer_id`,
+	);
+	await set(prevOrganizerRef, null);
 }
 
 /**
  * Start a new round for a task
  */
-export async function startRound(roomId: string, taskId: string): Promise<void> {
-  const currentRoundRef = ref(database, `rooms/${roomId}/current_round`)
+export async function startRound(
+	roomId: string,
+	taskId: string,
+): Promise<void> {
+	const currentRoundRef = ref(database, `rooms/${roomId}/current_round`);
 
-  await set(currentRoundRef, {
-    task_id: taskId,
-    started_at: serverTimestamp(),
-    estimates: {}
-  })
+	await set(currentRoundRef, {
+		task_id: taskId,
+		started_at: serverTimestamp(),
+		estimates: {},
+	});
 
-  await updateRoomStatus(roomId, 'active')
+	await updateRoomStatus(roomId, "active");
 }
 
 /**
  * Submit an estimate for a workstream
  */
 export async function submitEstimate(
-  roomId: string,
-  workstreamId: string,
-  value: FibonacciValue
+	roomId: string,
+	workstreamId: string,
+	value: FibonacciValue,
 ): Promise<void> {
-  const userId = auth.currentUser?.uid
-  if (!userId) throw new Error('User not authenticated')
+	const userId = auth.currentUser?.uid;
+	if (!userId) throw new Error("User not authenticated");
 
-  const estimateRef = ref(
-    database,
-    `rooms/${roomId}/current_round/estimates/${userId}/workstreams/${workstreamId}`
-  )
+	const estimateRef = ref(
+		database,
+		`rooms/${roomId}/current_round/estimates/${userId}/workstreams/${workstreamId}`,
+	);
 
-  await set(estimateRef, {
-    value,
-    submitted_at: serverTimestamp()
-  })
+	await set(estimateRef, {
+		value,
+		submitted_at: serverTimestamp(),
+	});
 
-  await updateLastActivity(roomId)
+	await updateLastActivity(roomId);
 }
 
 /**
  * Mark participant as done or not done
  */
 export async function markParticipantDone(
-  roomId: string,
-  isDone: boolean
+	roomId: string,
+	isDone: boolean,
 ): Promise<void> {
-  const userId = auth.currentUser?.uid
-  if (!userId) throw new Error('User not authenticated')
+	const userId = auth.currentUser?.uid;
+	if (!userId) throw new Error("User not authenticated");
 
-  const participantEstimateRef = ref(
-    database,
-    `rooms/${roomId}/current_round/estimates/${userId}`
-  )
+	const participantEstimateRef = ref(
+		database,
+		`rooms/${roomId}/current_round/estimates/${userId}`,
+	);
 
-  await update(participantEstimateRef, {
-    is_done: isDone,
-    done_at: isDone ? serverTimestamp() : null
-  })
+	await update(participantEstimateRef, {
+		is_done: isDone,
+		done_at: isDone ? serverTimestamp() : null,
+	});
 
-  await updateLastActivity(roomId)
+	await updateLastActivity(roomId);
 }
 
 /**
  * End the current round and move it to completed rounds
  */
 export async function endRound(roomId: string): Promise<void> {
-  // Get current round data
-  const currentRoundRef = ref(database, `rooms/${roomId}/current_round`)
-  const currentRoundSnapshot = await get(currentRoundRef)
+	// Get current round data
+	const currentRoundRef = ref(database, `rooms/${roomId}/current_round`);
+	const currentRoundSnapshot = await get(currentRoundRef);
 
-  if (!currentRoundSnapshot.exists()) {
-    throw new Error('No active round to end')
-  }
+	if (!currentRoundSnapshot.exists()) {
+		throw new Error("No active round to end");
+	}
 
-  const currentRound = currentRoundSnapshot.val()
+	const currentRound = currentRoundSnapshot.val();
 
-  // Get participants data for denormalization
-  const participantsRef = ref(database, `rooms/${roomId}/participants`)
-  const participantsSnapshot = await get(participantsRef)
-  const participants = participantsSnapshot.val() || {}
+	// Get participants data for denormalization
+	const participantsRef = ref(database, `rooms/${roomId}/participants`);
+	const participantsSnapshot = await get(participantsRef);
+	const participants = participantsSnapshot.val() || {};
 
-  // Get workstreams data for denormalization
-  const workstreamsRef = ref(database, `rooms/${roomId}/workstreams`)
-  const workstreamsSnapshot = await get(workstreamsRef)
-  const workstreams = workstreamsSnapshot.val() || {}
+	// Get workstreams data for denormalization
+	const workstreamsRef = ref(database, `rooms/${roomId}/workstreams`);
+	const workstreamsSnapshot = await get(workstreamsRef);
+	const workstreams = workstreamsSnapshot.val() || {};
 
-  // Transform estimates to include denormalized names
-  const completedEstimates: Record<string, any> = {}
+	// Transform estimates to include denormalized names
+	type CompletedEstimate = {
+		participant_name: string;
+		workstreams: Record<string, Estimate & { workstream_name: string }>;
+		is_done: boolean;
+		done_at?: number | null;
+	};
+	const completedEstimates: Record<string, CompletedEstimate> = {};
 
-  Object.entries(currentRound.estimates || {}).forEach(([participantId, estimate]: [string, any]) => {
-    const participant = participants[participantId]
-    const participantName = participant?.name || 'Unknown'
+	Object.entries(currentRound.estimates || {}).forEach(
+		([participantId, estimate]) => {
+			const est = estimate as {
+				workstreams?: Record<string, Estimate>;
+				is_done?: boolean;
+				done_at?: number;
+			};
+			const participant = participants[participantId];
+			const participantName = participant?.name || "Unknown";
 
-    // Transform workstream estimates to include workstream names
-    const workstreamEstimates: Record<string, any> = {}
-    Object.entries(estimate.workstreams || {}).forEach(([workstreamId, wsEstimate]: [string, any]) => {
-      const workstream = workstreams[workstreamId]
-      workstreamEstimates[workstreamId] = {
-        ...wsEstimate,
-        workstream_name: workstream?.name || 'Unknown'
-      }
-    })
+			// Transform workstream estimates to include workstream names
+			const workstreamEstimates: Record<
+				string,
+				Estimate & { workstream_name: string }
+			> = {};
+			Object.entries(est.workstreams || {}).forEach(
+				([workstreamId, wsEstimate]) => {
+					const ws = wsEstimate as Estimate;
+					const workstream = workstreams[workstreamId];
+					workstreamEstimates[workstreamId] = {
+						...ws,
+						workstream_name: workstream?.name || "Unknown",
+					};
+				},
+			);
 
-    completedEstimates[participantId] = {
-      participant_name: participantName,
-      workstreams: workstreamEstimates,
-      is_done: estimate.is_done || false,
-      done_at: estimate.done_at || null
-    }
-  })
+			completedEstimates[participantId] = {
+				participant_name: participantName,
+				workstreams: workstreamEstimates,
+				is_done: est.is_done || false,
+				done_at: est.done_at || null,
+			};
+		},
+	);
 
-  // Add to completed rounds
-  const completedRoundsRef = ref(database, `rooms/${roomId}/completed_rounds`)
-  await push(completedRoundsRef, {
-    task_id: currentRound.task_id,
-    started_at: currentRound.started_at,
-    completed_at: serverTimestamp(),
-    estimates: completedEstimates
-  })
+	// Add to completed rounds
+	const completedRoundsRef = ref(database, `rooms/${roomId}/completed_rounds`);
+	await push(completedRoundsRef, {
+		task_id: currentRound.task_id,
+		started_at: currentRound.started_at,
+		completed_at: serverTimestamp(),
+		estimates: completedEstimates,
+	});
 
-  // Clear current round
-  await remove(currentRoundRef)
+	// Clear current round
+	await remove(currentRoundRef);
 
-  // Update status to results
-  await updateRoomStatus(roomId, 'results')
+	// Update status to results
+	await updateRoomStatus(roomId, "results");
 }
 
 /**
@@ -316,120 +356,138 @@ export async function endRound(roomId: string): Promise<void> {
  * Returns true if advanced, false if no more tasks
  */
 export async function advanceToNextTask(roomId: string): Promise<boolean> {
-  const metadataRef = ref(database, `rooms/${roomId}/metadata`)
-  const tasksRef = ref(database, `rooms/${roomId}/tasks`)
+	const metadataRef = ref(database, `rooms/${roomId}/metadata`);
+	const tasksRef = ref(database, `rooms/${roomId}/tasks`);
 
-  // Get current task index and tasks
-  const metadataSnapshot = await get(metadataRef)
-  const tasksSnapshot = await get(tasksRef)
+	// Get current task index and tasks
+	const metadataSnapshot = await get(metadataRef);
+	const tasksSnapshot = await get(tasksRef);
 
-  const metadata = metadataSnapshot.val()
-  const tasks = tasksSnapshot.val() || {}
-  const taskCount = Object.keys(tasks).length
+	const metadata = metadataSnapshot.val();
+	const tasks = tasksSnapshot.val() || {};
+	const taskCount = Object.keys(tasks).length;
 
-  const currentIndex = metadata?.current_task_index || 0
-  const nextIndex = currentIndex + 1
+	const currentIndex = metadata?.current_task_index || 0;
+	const nextIndex = currentIndex + 1;
 
-  if (nextIndex >= taskCount) {
-    // No more tasks, end session
-    await updateRoomStatus(roomId, 'ended')
-    return false
-  }
+	if (nextIndex >= taskCount) {
+		// No more tasks, end session
+		await updateRoomStatus(roomId, "ended");
+		return false;
+	}
 
-  // Advance to next task
-  await update(metadataRef, {
-    current_task_index: nextIndex
-  })
+	// Advance to next task
+	await update(metadataRef, {
+		current_task_index: nextIndex,
+	});
 
-  // Get next task ID
-  const nextTask = Object.values(tasks).find((task: any) => task.order === nextIndex) as Task
+	// Get next task ID
+	const nextTask = Object.values(tasks).find(
+		(task) => (task as Task).order === nextIndex,
+	) as Task;
 
-  if (nextTask) {
-    // Start new round
-    await startRound(roomId, nextTask.id)
-    return true
-  }
+	if (nextTask) {
+		// Start new round
+		await startRound(roomId, nextTask.id);
+		return true;
+	}
 
-  return false
+	return false;
 }
 
 /**
  * Update participant data
  */
 export async function updateParticipant(
-  roomId: string,
-  updates: Partial<Participant>
+	roomId: string,
+	updates: Partial<Participant>,
 ): Promise<void> {
-  const userId = auth.currentUser?.uid
-  if (!userId) throw new Error('User not authenticated')
+	const userId = auth.currentUser?.uid;
+	if (!userId) throw new Error("User not authenticated");
 
-  const participantRef = ref(database, `rooms/${roomId}/participants/${userId}`)
-  await update(participantRef, updates)
+	const participantRef = ref(
+		database,
+		`rooms/${roomId}/participants/${userId}`,
+	);
+	await update(participantRef, updates);
 }
 
 /**
  * Remove a participant from the room
  */
-export async function removeParticipant(roomId: string, participantId: string): Promise<void> {
-  const participantRef = ref(database, `rooms/${roomId}/participants/${participantId}`)
-  await remove(participantRef)
+export async function removeParticipant(
+	roomId: string,
+	participantId: string,
+): Promise<void> {
+	const participantRef = ref(
+		database,
+		`rooms/${roomId}/participants/${participantId}`,
+	);
+	await remove(participantRef);
 }
 
 /**
  * Get all active participants in a room
  */
-export async function getActiveParticipants(roomId: string): Promise<Participant[]> {
-  const participantsRef = ref(database, `rooms/${roomId}/participants`)
-  const snapshot = await get(participantsRef)
+export async function getActiveParticipants(
+	roomId: string,
+): Promise<Participant[]> {
+	const participantsRef = ref(database, `rooms/${roomId}/participants`);
+	const snapshot = await get(participantsRef);
 
-  if (!snapshot.exists()) return []
+	if (!snapshot.exists()) return [];
 
-  const participants = snapshot.val()
-  return Object.values(participants) as Participant[]
+	const participants = snapshot.val();
+	return Object.values(participants) as Participant[];
 }
 
 /**
  * Get room metadata
  */
-export async function getRoomMetadata(roomId: string): Promise<RoomMetadata | null> {
-  const metadataRef = ref(database, `rooms/${roomId}/metadata`)
-  const snapshot = await get(metadataRef)
+export async function getRoomMetadata(
+	roomId: string,
+): Promise<RoomMetadata | null> {
+	const metadataRef = ref(database, `rooms/${roomId}/metadata`);
+	const snapshot = await get(metadataRef);
 
-  if (!snapshot.exists()) return null
+	if (!snapshot.exists()) return null;
 
-  return snapshot.val() as RoomMetadata
+	return snapshot.val() as RoomMetadata;
 }
 
 /**
  * Update last activity timestamp
  */
 async function updateLastActivity(roomId: string): Promise<void> {
-  const lastActivityRef = ref(database, `rooms/${roomId}/metadata/last_activity`)
-  await set(lastActivityRef, serverTimestamp())
+	const lastActivityRef = ref(
+		database,
+		`rooms/${roomId}/metadata/last_activity`,
+	);
+	await set(lastActivityRef, serverTimestamp());
 }
 
 /**
  * Generate a consistent color from peer ID
  */
 function generateColorFromPeerId(peerId: string): string {
-  const colors = [
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-pink-500',
-    'bg-yellow-500',
-    'bg-red-500',
-    'bg-indigo-500',
-    'bg-teal-500',
-    'bg-orange-500',
-    'bg-cyan-500'
-  ]
+	const colors = [
+		"bg-blue-500",
+		"bg-green-500",
+		"bg-purple-500",
+		"bg-pink-500",
+		"bg-yellow-500",
+		"bg-red-500",
+		"bg-indigo-500",
+		"bg-teal-500",
+		"bg-orange-500",
+		"bg-cyan-500",
+	];
 
-  // Simple hash function
-  let hash = 0
-  for (let i = 0; i < peerId.length; i++) {
-    hash = peerId.charCodeAt(i) + ((hash << 5) - hash)
-  }
+	// Simple hash function
+	let hash = 0;
+	for (let i = 0; i < peerId.length; i++) {
+		hash = peerId.charCodeAt(i) + ((hash << 5) - hash);
+	}
 
-  return colors[Math.abs(hash) % colors.length]
+	return colors[Math.abs(hash) % colors.length];
 }
