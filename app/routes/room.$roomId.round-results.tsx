@@ -29,7 +29,10 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "Results - Estimation" }];
 }
 
-export async function clientAction({ params, request }: Route.ClientActionArgs) {
+export async function clientAction({
+  params,
+  request,
+}: Route.ClientActionArgs) {
   const roomId = params.roomId;
   const formData = await request.formData();
   const actionType = formData.get("_action");
@@ -54,7 +57,9 @@ export async function clientAction({ params, request }: Route.ClientActionArgs) 
     }
   } catch (error) {
     console.error("Action error:", error);
-    return { error: error instanceof Error ? error.message : "An error occurred" };
+    return {
+      error: error instanceof Error ? error.message : "An error occurred",
+    };
   }
 }
 
@@ -324,23 +329,23 @@ export default function Results() {
         {/* Right Column: Actions - Narrow */}
         <div className="space-y-4">
           {/* Show remaining tasks and heading for everyone */}
-          <Card>
+          <Card className="gap-4">
             <CardHeader>
               <CardTitle className="text-base">
                 {hasMoreTasks ? "Continue" : "All Done"}
               </CardTitle>
+              <CardDescription>
+                {hasMoreTasks
+                  ? `${tasks.length - currentTaskIndex - 1} ${
+                      tasks.length - currentTaskIndex - 1 === 1
+                        ? "task"
+                        : "tasks"
+                    } remaining`
+                  : "All tasks completed"}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-sm space-y-1">
-                <p className="font-medium">
-                  {hasMoreTasks
-                    ? `${tasks.length - currentTaskIndex - 1} ${
-                        tasks.length - currentTaskIndex - 1 === 1
-                          ? "task"
-                          : "tasks"
-                      } remaining`
-                    : "All tasks completed"}
-                </p>
                 {hasMoreTasks && (
                   <p className="text-muted-foreground">
                     {isOrganizer
@@ -352,7 +357,11 @@ export default function Results() {
               {isOrganizer && (
                 <div className="space-y-2">
                   {hasMoreTasks && (
-                    <Button onClick={handleNextTask} className="w-full" disabled={isSubmitting}>
+                    <Button
+                      onClick={handleNextTask}
+                      className="w-full"
+                      disabled={isSubmitting}
+                    >
                       Next Task
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
