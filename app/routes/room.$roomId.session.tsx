@@ -1,5 +1,6 @@
 import type { Route } from "./+types/room.$roomId.session";
 import { useState, useEffect } from "react";
+import { useSubmit, useNavigation } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -33,6 +34,40 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "Estimation Session - Estimation" }];
 }
 
+export async function clientAction({ params, request }: Route.ClientActionArgs) {
+  const roomId = params.roomId;
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+
+  try {
+    switch (actionType) {
+      case "submit-estimate": {
+        const workstreamId = formData.get("workstreamId") as string;
+        const value = formData.get("value") as FibonacciValue;
+        await submitEstimate(roomId, workstreamId, value);
+        return { success: true };
+      }
+
+      case "mark-done": {
+        const isDone = formData.get("isDone") === "true";
+        await markParticipantDone(roomId, isDone);
+        return { success: true };
+      }
+
+      case "end-round": {
+        await endRound(roomId);
+        return { success: true };
+      }
+
+      default:
+        return { error: "Unknown action" };
+    }
+  } catch (error) {
+    console.error("Action error:", error);
+    return { error: error instanceof Error ? error.message : "An error occurred" };
+  }
+}
+
 export default function EstimationSession() {
   const { roomId, userId } = useFirebaseRoom();
   const currentTask = useCurrentTask(roomId);
@@ -42,6 +77,10 @@ export default function EstimationSession() {
   const isOrganizer = useIsOrganizer(roomId, userId);
   const allDone = useAllParticipantsDone(roomId);
   const tasks = useTasks(roomId);
+  const submit = useSubmit();
+  const navigation = useNavigation();
+
+  const isSubmitting = navigation.state === "submitting";
 
   const [selectedWorkstream, setSelectedWorkstream] = useState<string | null>(
     null,
@@ -75,42 +114,43 @@ export default function EstimationSession() {
 
   // Auto-end round when all done
   useEffect(() => {
-    if (allDone && isOrganizer) {
+    if (allDone && isOrganizer && !isSubmitting) {
       // Small delay to allow UI to update
       setTimeout(() => {
-        endRound(roomId).catch(console.error);
+        const formData = new FormData();
+        formData.append("_action", "end-round");
+        submit(formData, { method: "post" });
       }, 500);
     }
-  }, [allDone, isOrganizer, roomId]);
+  }, [allDone, isOrganizer, isSubmitting, submit]);
 
-  const handleEstimate = async (
+  const handleEstimate = (
     workstreamId: string,
     value: FibonacciValue,
   ) => {
-    try {
-      await submitEstimate(roomId, workstreamId, value);
-      setMyEstimates(new Map(myEstimates).set(workstreamId, value));
-    } catch (err) {
-      console.error("Failed to submit estimate:", err);
-    }
+    const formData = new FormData();
+    formData.append("_action", "submit-estimate");
+    formData.append("workstreamId", workstreamId);
+    formData.append("value", String(value));
+    submit(formData, { method: "post" });
+    // Optimistic update
+    setMyEstimates(new Map(myEstimates).set(workstreamId, value));
   };
 
-  const handleToggleDone = async () => {
-    try {
-      const newDone = !isDone;
-      await markParticipantDone(roomId, newDone);
-      setIsDone(newDone);
-    } catch (err) {
-      console.error("Failed to mark as done:", err);
-    }
+  const handleToggleDone = () => {
+    const newDone = !isDone;
+    const formData = new FormData();
+    formData.append("_action", "mark-done");
+    formData.append("isDone", String(newDone));
+    submit(formData, { method: "post" });
+    // Optimistic update
+    setIsDone(newDone);
   };
 
-  const handleEndRound = async () => {
-    try {
-      await endRound(roomId);
-    } catch (err) {
-      console.error("Failed to end round:", err);
-    }
+  const handleEndRound = () => {
+    const formData = new FormData();
+    formData.append("_action", "end-round");
+    submit(formData, { method: "post" });
   };
 
   const getWorkstreamSubmitters = (workstreamId: string): string[] => {
@@ -180,7 +220,7 @@ export default function EstimationSession() {
                   <CardTitle className="text-2xl">
                     {currentTask.title}
                   </CardTitle>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                  <ExternalLink className="h-4 w-4 shrink-0" />
                 </a>
               ) : (
                 <CardTitle className="text-2xl">{currentTask.title}</CardTitle>
@@ -288,7 +328,7 @@ export default function EstimationSession() {
                         key={value}
                         variant={isSelected ? "default" : "outline"}
                         size="lg"
-                        className="text-xl font-bold min-w-[4rem] h-16"
+                        className="text-xl font-bold min-w-16 h-16"
                         onClick={() =>
                           handleEstimate(selectedWorkstream, value)
                         }
@@ -305,7 +345,7 @@ export default function EstimationSession() {
                         : "outline"
                     }
                     size="lg"
-                    className="text-xl font-bold min-w-[4rem] h-16"
+                    className="text-xl font-bold min-w-16 h-16"
                     onClick={() => handleEstimate(selectedWorkstream, "?")}
                   >
                     ?
@@ -316,9 +356,9 @@ export default function EstimationSession() {
           )}
         </div>
 
-        {/* Participants Status */}
         {!!participants && (
           <div className="space-y-4">
+            {/* Participants Status */}
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -367,7 +407,7 @@ export default function EstimationSession() {
                   variant={isDone ? "secondary" : "default"}
                   className="w-full"
                   onClick={handleToggleDone}
-                  disabled={!hasAnyEstimate}
+                  disabled={!hasAnyEstimate || isSubmitting}
                 >
                   {isDone ? (
                     <>
@@ -392,6 +432,7 @@ export default function EstimationSession() {
                       variant="outline"
                       className="w-full"
                       onClick={handleEndRound}
+                      disabled={isSubmitting}
                     >
                       End Round
                     </Button>
@@ -405,8 +446,8 @@ export default function EstimationSession() {
               </CardContent>
             </Card>
           </div>
-        )}
-      </div>
+
+      </div>)}
     </div>
   );
 }

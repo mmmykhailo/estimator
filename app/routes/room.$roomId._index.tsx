@@ -1,4 +1,5 @@
 import type { Route } from "./+types/room.$roomId._index";
+import { Form, useSubmit, useNavigation } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -24,21 +25,50 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "Lobby - Estimation" }];
 }
 
+export async function clientAction({
+  params,
+  request,
+}: Route.ClientActionArgs) {
+  const roomId = params.roomId;
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+
+  try {
+    switch (actionType) {
+      case "start-round": {
+        const taskId = formData.get("taskId") as string;
+        await startRound(roomId, taskId);
+        return { success: true };
+      }
+
+      default:
+        return { error: "Unknown action" };
+    }
+  } catch (error) {
+    console.error("Action error:", error);
+    return {
+      error: error instanceof Error ? error.message : "An error occurred",
+    };
+  }
+}
+
 export default function Lobby() {
   const { roomId, userId } = useFirebaseRoom();
   const workstreams = useWorkstreams(roomId);
   const tasks = useTasks(roomId);
   const participants = useParticipants(roomId);
   const isOrganizer = useIsOrganizer(roomId, userId);
+  const submit = useSubmit();
+  const navigation = useNavigation();
 
-  const handleStartEstimation = async () => {
-    try {
-      // Start round with first task
-      if (tasks.length > 0) {
-        await startRound(roomId, tasks[0].id);
-      }
-    } catch (err) {
-      console.error("Failed to start estimation:", err);
+  const isSubmitting = navigation.state === "submitting";
+
+  const handleStartEstimation = () => {
+    if (tasks.length > 0) {
+      const formData = new FormData();
+      formData.append("_action", "start-round");
+      formData.append("taskId", tasks[0].id);
+      submit(formData, { method: "post" });
     }
   };
 
@@ -188,10 +218,12 @@ export default function Lobby() {
                     size="lg"
                     onClick={handleStartEstimation}
                     className="w-full"
-                    disabled={!participants || participants.length === 0}
+                    disabled={
+                      !participants || participants.length === 0 || isSubmitting
+                    }
                   >
                     <Play className="h-5 w-5 mr-2" />
-                    Start Estimation
+                    {isSubmitting ? "Starting..." : "Start Estimation"}
                   </Button>
                   {participants?.length === 0 && (
                     <p className="text-sm text-muted-foreground">

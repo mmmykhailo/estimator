@@ -257,7 +257,7 @@ export function useAllParticipantsDone(roomId: string): boolean {
   const [allDone, setAllDone] = useState(false);
 
   useEffect(() => {
-    if (!estimates || participants.length === 0) {
+    if (!estimates || !participants || participants.length === 0) {
       setAllDone(false);
       return;
     }

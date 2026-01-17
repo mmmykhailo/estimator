@@ -1,6 +1,7 @@
 import type { Route } from "./+types/create";
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useNavigate, useSubmit, useNavigation, useActionData } from "react-router";
+import { createRoom } from "~/lib/firebase/operations";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -25,8 +26,34 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+export async function clientAction({ request }: Route.ClientActionArgs) {
+  const formData = await request.formData();
+  const roomCode = formData.get("roomCode") as string;
+  const workstreamsJson = formData.get("workstreams") as string;
+  const tasksJson = formData.get("tasks") as string;
+
+  const workstreams = JSON.parse(workstreamsJson) as Omit<
+    Workstream,
+    "order"
+  >[];
+  const tasks = JSON.parse(tasksJson) as Omit<Task, "order">[];
+
+  try {
+    await createRoom(roomCode, workstreams, tasks);
+    return { success: true, roomCode };
+  } catch (error) {
+    console.error("Failed to create room:", error);
+    return {
+      error: error instanceof Error ? error.message : "Failed to create room",
+    };
+  }
+}
+
 export default function CreateRoom() {
   const navigate = useNavigate();
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const actionData = useActionData<typeof clientAction>();
   const [workstreams, setWorkstreams] = useState<Omit<Workstream, "order">[]>([
     { id: nanoid(), name: "" },
   ]);
@@ -38,6 +65,18 @@ export default function CreateRoom() {
     tasks?: string;
   }>({});
   const [includeWorkstreams, setIncludeWorkstreams] = useState(false);
+
+  const isSubmitting = navigation.state === "submitting";
+
+  // Navigate to room after successful creation
+  useEffect(() => {
+    if (actionData?.success && actionData.roomCode) {
+      navigate(`/room/${actionData.roomCode}`);
+    }
+  }, [actionData, navigate]);
+
+  // Show error if creation failed
+  const creationError = actionData?.error;
 
   const addWorkstream = () => {
     setWorkstreams([...workstreams, { id: nanoid(), name: "" }]);
@@ -113,14 +152,13 @@ export default function CreateRoom() {
     // Generate room code
     const roomCode = createRoomCode();
 
-    // Navigate to room with creation data
-    navigate(`/room/${roomCode}`, {
-      state: {
-        createRoom: true,
-        workstreams: validWorkstreams,
-        tasks: validTasks,
-      },
-    });
+    // Submit to action
+    const formData = new FormData();
+    formData.append("roomCode", roomCode);
+    formData.append("workstreams", JSON.stringify(validWorkstreams));
+    formData.append("tasks", JSON.stringify(validTasks));
+
+    submit(formData, { method: "post" });
   };
 
   return (
@@ -321,19 +359,24 @@ export default function CreateRoom() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {creationError && (
+                  <p className="text-sm text-destructive">{creationError}</p>
+                )}
                 <div className="space-y-2">
                   <Button
                     onClick={handleCreateRoom}
                     className="w-full"
                     size="lg"
+                    disabled={isSubmitting}
                   >
-                    Create Room
+                    {isSubmitting ? "Creating..." : "Create Room"}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => navigate("/")}
                     className="w-full"
                     size="lg"
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </Button>

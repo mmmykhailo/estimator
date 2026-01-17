@@ -1,4 +1,5 @@
 import type { Route } from "./+types/room.$roomId.round-results";
+import { useSubmit, useNavigation } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -22,9 +23,39 @@ import {
   useRoomMetadata,
 } from "~/lib/room/hooks";
 import { advanceToNextTask, updateRoomStatus } from "~/lib/firebase/operations";
+import { auth } from "~/lib/firebase/config";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Results - Estimation" }];
+}
+
+export async function clientAction({ params, request }: Route.ClientActionArgs) {
+  const roomId = params.roomId;
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+
+  try {
+    switch (actionType) {
+      case "next-task": {
+        const hasNext = await advanceToNextTask(roomId);
+        if (!hasNext) {
+          await updateRoomStatus(roomId, "ended");
+        }
+        return { success: true, hasNext };
+      }
+
+      case "end-session": {
+        await updateRoomStatus(roomId, "ended");
+        return { success: true };
+      }
+
+      default:
+        return { error: "Unknown action" };
+    }
+  } catch (error) {
+    console.error("Action error:", error);
+    return { error: error instanceof Error ? error.message : "An error occurred" };
+  }
 }
 
 export default function Results() {
@@ -36,27 +67,22 @@ export default function Results() {
   const tasks = useTasks(roomId);
   const currentTask = useCurrentTask(roomId);
   const metadata = useRoomMetadata(roomId);
+  const submit = useSubmit();
+  const navigation = useNavigation();
 
+  const isSubmitting = navigation.state === "submitting";
   const currentTaskIndex = metadata?.current_task_index || 0;
 
-  const handleNextTask = async () => {
-    try {
-      const hasNext = await advanceToNextTask(roomId);
-      if (!hasNext) {
-        // No more tasks
-        await updateRoomStatus(roomId, "ended");
-      }
-    } catch (err) {
-      console.error("Failed to advance to next task:", err);
-    }
+  const handleNextTask = () => {
+    const formData = new FormData();
+    formData.append("_action", "next-task");
+    submit(formData, { method: "post" });
   };
 
-  const handleEndSession = async () => {
-    try {
-      await updateRoomStatus(roomId, "ended");
-    } catch (err) {
-      console.error("Failed to end session:", err);
-    }
+  const handleEndSession = () => {
+    const formData = new FormData();
+    formData.append("_action", "end-session");
+    submit(formData, { method: "post" });
   };
 
   const shouldShowWorkstreamSection = workstreams.length > 1;
@@ -173,7 +199,7 @@ export default function Results() {
                       {Object.entries(lastRound.estimates)
                         .filter(([_, data]) => data.workstreams[workstream.id])
                         .map(([participantId, data]) => {
-                          const participant = participants.find(
+                          const participant = participants?.find(
                             (p) => p.peer_id === participantId,
                           );
                           const estimate = data.workstreams[workstream.id];
@@ -251,7 +277,7 @@ export default function Results() {
                 <div className="space-y-3">
                   {Object.entries(lastRound.estimates).map(
                     ([participantId, data]) => {
-                      const participant = participants.find(
+                      const participant = participants?.find(
                         (p) => p.peer_id === participantId,
                       );
                       const participantName =
@@ -326,7 +352,7 @@ export default function Results() {
               {isOrganizer && (
                 <div className="space-y-2">
                   {hasMoreTasks && (
-                    <Button onClick={handleNextTask} className="w-full">
+                    <Button onClick={handleNextTask} className="w-full" disabled={isSubmitting}>
                       Next Task
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
@@ -335,6 +361,7 @@ export default function Results() {
                     variant="outline"
                     onClick={handleEndSession}
                     className="w-full"
+                    disabled={isSubmitting}
                   >
                     {hasMoreTasks ? "End Session" : "Finish"}
                   </Button>

@@ -1,6 +1,13 @@
 import type { Route } from "./+types/room.$roomId";
 import { useEffect, useState, useCallback } from "react";
-import { Outlet, useLocation, useNavigate, useParams } from "react-router";
+import {
+  Outlet,
+  useLoaderData,
+  useActionData,
+  useSubmit,
+  useNavigation,
+  useNavigate,
+} from "react-router";
 import { FirebaseRoomProvider } from "~/lib/room/firebase-context";
 import {
   createRoom,
@@ -58,6 +65,111 @@ export function meta({ params }: Route.MetaArgs) {
   return [{ title: `Room ${params.roomId} - Estimation` }];
 }
 
+export async function clientLoader({
+  params,
+  request,
+}: Route.ClientLoaderArgs) {
+  const url = new URL(request.url);
+  const roomId = params.roomId;
+
+  // Ensure auth is initialized
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
+
+  const userId = auth.currentUser?.uid;
+  if (!userId) {
+    throw new Error("Failed to authenticate user");
+  }
+
+  // Check if room exists
+  const roomExists = await checkRoomExists(roomId);
+
+  let roomMetadata = null;
+  let isParticipant = false;
+
+  if (roomExists) {
+    roomMetadata = await getRoomMetadata(roomId);
+
+    // Check if we're already a participant
+    const { ref, get } = await import("firebase/database");
+    const { database } = await import("~/lib/firebase/config");
+    const participantRef = ref(
+      database,
+      `rooms/${roomId}/participants/${userId}`,
+    );
+    const snapshot = await get(participantRef);
+    isParticipant = snapshot.exists();
+  }
+
+  return {
+    roomId,
+    userId,
+    roomExists,
+    roomMetadata,
+    isParticipant,
+  };
+}
+
+export async function clientAction({
+  params,
+  request,
+}: Route.ClientActionArgs) {
+  const roomId = params.roomId;
+  const formData = await request.formData();
+  const actionType = formData.get("_action");
+
+  const userId = auth.currentUser?.uid;
+  if (!userId) {
+    return { error: "User not authenticated" };
+  }
+
+  try {
+    switch (actionType) {
+      case "create": {
+        const workstreamsJson = formData.get("workstreams") as string;
+        const tasksJson = formData.get("tasks") as string;
+        const workstreams = JSON.parse(workstreamsJson) as Workstream[];
+        const tasks = JSON.parse(tasksJson) as Task[];
+        await createRoom(roomId, workstreams, tasks);
+        return { success: true };
+      }
+
+      case "join": {
+        const name = formData.get("name") as string;
+        if (!name || name.trim().length < 2) {
+          return { error: "Name must be at least 2 characters" };
+        }
+        const success = await joinRoom(roomId, name.trim());
+        if (!success) {
+          const roomMetadata = await getRoomMetadata(roomId);
+          if (roomMetadata?.status === "ended") {
+            return {
+              error: "This session has ended. New participants cannot join.",
+            };
+          }
+          return { error: "Failed to join room" };
+        }
+        return { success: true };
+      }
+
+      case "overtake-organizer": {
+        await setOrganizer(roomId, userId, true);
+        await updateParticipant(roomId, { is_organizer: true });
+        return { success: true };
+      }
+
+      default:
+        return { error: "Unknown action" };
+    }
+  } catch (error) {
+    console.error("Action error:", error);
+    return {
+      error: error instanceof Error ? error.message : "An error occurred",
+    };
+  }
+}
+
 // Generate peer ID
 function generatePeerId(): string {
   return `peer-${Math.random().toString(36).substring(2, 11)}`;
@@ -80,213 +192,63 @@ function getOrCreatePeerId(roomId: string): string {
 }
 
 export default function RoomLayout() {
-  const params = useParams();
-  const location = useLocation();
+  const loaderData = useLoaderData<typeof clientLoader>();
+  const actionData = useActionData<typeof clientAction>();
+  const submit = useSubmit();
+  const navigation = useNavigation();
   const navigate = useNavigate();
-  const roomId = params.roomId!;
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  const { roomId, userId, roomExists, roomMetadata, isParticipant } =
+    loaderData;
+
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [name, setName] = useState("");
-  const [nameError, setNameError] = useState("");
 
-  // Initialize Firebase Auth
+  const isSubmitting = navigation.state === "submitting";
+
+  // Check if we need to show name dialog or handle errors
   useEffect(() => {
-    let mounted = true;
+    if (!roomExists) {
+      // Room doesn't exist - show error
+      return;
+    }
 
-    const initializeAuth = async () => {
-      try {
-        if (auth.currentUser) {
-          if (mounted) {
-            setUserId(auth.currentUser.uid);
-          }
-        } else {
-          // Sign in anonymously
-          const result = await signInAnonymously(auth);
-          if (mounted) {
-            setUserId(result.user.uid);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to initialize auth:", err);
-        if (mounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to initialize authentication",
-          );
-          setLoading(false);
-        }
-      }
-    };
+    if (roomMetadata?.status === "ended" && !isParticipant) {
+      // Room is ended and we're not a participant - show error
+      return;
+    }
 
-    initializeAuth();
+    if (!isParticipant) {
+      // Show name dialog if not a participant
+      setShowNameDialog(true);
+    }
+  }, [roomExists, roomMetadata, isParticipant]);
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Initialize room after auth is ready
+  // Handle successful join
   useEffect(() => {
-    if (!userId) return;
-
-    let mounted = true;
-
-    const initializeRoom = async () => {
-      try {
-        // First check if room exists and we're already a participant
-        const roomExists = await checkRoomExists(roomId);
-
-        if (roomExists) {
-          // Room exists - check if we're already a participant
-          const participantsRef = await import("firebase/database").then(
-            (m) => m.ref,
-          );
-          const getFunc = await import("firebase/database").then((m) => m.get);
-          const { database } = await import("~/lib/firebase/config");
-
-          const participantRef = participantsRef(
-            database,
-            `rooms/${roomId}/participants/${userId}`,
-          );
-          const snapshot = await getFunc(participantRef);
-
-          if (snapshot.exists()) {
-            // Already a participant - just continue
-            if (mounted) {
-              setInitialized(true);
-              setLoading(false);
-            }
-            return;
-          }
-        }
-
-        // Not a participant yet - check state for creation/joining
-        const state = location.state as any;
-
-        if (state?.createRoom) {
-          // Creating a new room
-          const workstreams = state.workstreams as Workstream[];
-          const tasks = state.tasks as Task[];
-
-          // Create room in Firebase (organizer is automatically added as participant)
-          await createRoom(roomId, workstreams, tasks);
-        } else if (state?.joinRoom) {
-          // Joining existing room with name from state
-          const name = state.name as string;
-
-          // Join room
-          const success = await joinRoom(roomId, name);
-
-          if (!success) {
-            // Check if room is ended
-            const roomMetadata = await getRoomMetadata(roomId);
-            if (roomMetadata?.status === "ended") {
-              throw new Error(
-                "This session has ended. New participants cannot join.",
-              );
-            } else {
-              throw new Error("Room not found");
-            }
-          }
-        } else {
-          // No state - check if room exists and prompt for name
-          if (roomExists) {
-            // Check if room is ended
-            const roomMetadata = await getRoomMetadata(roomId);
-            if (roomMetadata?.status === "ended") {
-              throw new Error(
-                "This session has ended. New participants cannot join.",
-              );
-            }
-            // Room exists, show name dialog
-            if (mounted) {
-              setLoading(false);
-              setShowNameDialog(true);
-            }
-            return;
-          } else {
-            // Room doesn't exist
-            throw new Error(
-              "Room not found. Please check the room code or create a new room.",
-            );
-          }
-        }
-
-        if (mounted) {
-          setInitialized(true);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Failed to initialize room:", err);
-        if (mounted) {
-          setError(
-            err instanceof Error ? err.message : "Failed to initialize room",
-          );
-          setLoading(false);
-        }
+    if (actionData?.success && showNameDialog) {
+      setShowNameDialog(false);
+      // If room is active, navigate to session
+      if (roomMetadata?.status === "active") {
+        navigate(`/room/${roomId}/session`, { replace: true });
       }
-    };
+    }
+  }, [actionData, showNameDialog, roomMetadata, roomId, navigate]);
 
-    initializeRoom();
-
-    return () => {
-      mounted = false;
-    };
-  }, [roomId, userId, location.state]);
-
-  const handleJoinWithName = async () => {
+  const handleJoinWithName = () => {
     const trimmedName = name.trim();
-    if (!trimmedName) {
-      setNameError("Please enter your name");
-      return;
-    }
-    if (trimmedName.length < 2) {
-      setNameError("Name must be at least 2 characters");
+    if (!trimmedName || trimmedName.length < 2) {
       return;
     }
 
-    try {
-      setLoading(true);
-      const success = await joinRoom(roomId, trimmedName);
-      if (success) {
-        // Check room status to determine where to redirect
-        const roomMetadata = await getRoomMetadata(roomId);
-        setShowNameDialog(false);
-        setInitialized(true);
-        setLoading(false);
-
-        // If room is active, navigate to session instead of waiting for effect
-        if (roomMetadata?.status === "active") {
-          navigate(`/room/${roomId}/session`, { replace: true });
-        }
-      } else {
-        setNameError("Failed to join room");
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error("Failed to join room:", err);
-      setNameError("Failed to join room");
-      setLoading(false);
-    }
+    const formData = new FormData();
+    formData.append("_action", "join");
+    formData.append("name", trimmedName);
+    submit(formData, { method: "post" });
   };
 
-  if (loading && !showNameDialog) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Connecting to room...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || (!initialized && !showNameDialog)) {
+  // Show error state
+  if (!roomExists) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md p-6 space-y-4 border-destructive">
@@ -294,7 +256,28 @@ export default function RoomLayout() {
             <AlertCircle className="h-5 w-5" />
             <h2 className="text-lg font-semibold">Failed to Connect</h2>
           </div>
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <p className="text-sm text-muted-foreground">
+            Room not found. Please check the room code or create a new room.
+          </p>
+          <Button onClick={() => navigate("/")} className="w-full">
+            Back to Home
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (roomMetadata?.status === "ended" && !isParticipant) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-md p-6 space-y-4 border-destructive">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <h2 className="text-lg font-semibold">Failed to Connect</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            This session has ended. New participants cannot join.
+          </p>
           <Button onClick={() => navigate("/")} className="w-full">
             Back to Home
           </Button>
@@ -305,6 +288,8 @@ export default function RoomLayout() {
 
   // Show name dialog if needed
   if (showNameDialog) {
+    const nameError = actionData?.error;
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
         <Card className="w-full max-w-md">
@@ -324,13 +309,11 @@ export default function RoomLayout() {
                 id="name"
                 placeholder="e.g. John Doe"
                 value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setNameError("");
-                }}
+                onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
                 className={nameError ? "border-destructive" : ""}
                 autoFocus
+                disabled={isSubmitting}
               />
               {nameError && (
                 <p className="text-sm text-destructive">{nameError}</p>
@@ -341,15 +324,18 @@ export default function RoomLayout() {
                 variant="outline"
                 onClick={() => navigate("/")}
                 className="flex-1"
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleJoinWithName}
-                disabled={!name.trim() || loading}
+                disabled={
+                  !name.trim() || name.trim().length < 2 || isSubmitting
+                }
                 className="flex-1"
               >
-                {loading ? "Joining..." : "Join Room"}
+                {isSubmitting ? "Joining..." : "Join Room"}
               </Button>
             </div>
           </CardContent>
@@ -383,8 +369,6 @@ function RoomContent({
 
   const isOrganizer = userId && organizerId ? organizerId === userId : false;
 
-  console.log(isOrganizer, userId, organizerId);
-
   // Stale participant cleanup (organizer only)
   useEffect(() => {
     if (!isOrganizer) return;
@@ -416,6 +400,7 @@ function RoomContent({
     // 2. Organizer exists but hasn't sent heartbeat in 6 seconds
     if (userId !== organizerId) {
       if (!organizer) {
+        console.log({ organizer, participants });
         // Organizer has left the room
         setShowOrganizerModal(true);
       } else {
@@ -423,6 +408,7 @@ function RoomContent({
         const timeSinceHeartbeat = now - organizer.last_heartbeat;
 
         if (timeSinceHeartbeat > 6000) {
+          console.log({ organizer, participants });
           setShowOrganizerModal(true);
         } else {
           setShowOrganizerModal(false);
@@ -556,7 +542,7 @@ function RoomContent({
       </main>
 
       {/* Leave Room Confirmation Modal */}
-      <Dialog open={showLeaveModal} onOpenChange={setShowLeaveModal}>
+      <Dialog open={false} onOpenChange={setShowLeaveModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Leave Room</DialogTitle>
@@ -577,7 +563,7 @@ function RoomContent({
       </Dialog>
 
       {/* Organizer Disconnect Modal */}
-      <Dialog open={showOrganizerModal} onOpenChange={setShowOrganizerModal}>
+      <Dialog open={false} onOpenChange={setShowOrganizerModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Organizer Disconnected</DialogTitle>
