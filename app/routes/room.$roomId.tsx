@@ -122,11 +122,16 @@ export async function clientAction({
 			}
 
 			case "join": {
-				const name = formData.get("name") as string;
-				if (!name || name.trim().length < 2) {
+				const rawName = formData.get("name") as string;
+				// Sanitize: only allow letters and spaces, max 32 chars
+				const name = rawName
+					?.replace(/[^\p{L}\s]/gu, "")
+					.trim()
+					.slice(0, 32);
+				if (!name || name.length < 2) {
 					return { error: "Name must be at least 2 characters" };
 				}
-				const success = await joinRoom(roomId, name.trim());
+				const success = await joinRoom(roomId, name);
 				if (!success) {
 					const roomMetadata = await getRoomMetadata(roomId);
 					if (roomMetadata?.status === "ended") {
@@ -190,7 +195,9 @@ export default function RoomLayout() {
 	const [showNameDialog, setShowNameDialog] = useState(false);
 	const [name, setName] = useState(() => {
 		if (typeof window !== "undefined") {
-			return localStorage.getItem("userNickname") || "";
+			const stored = localStorage.getItem("userNickname") || "";
+			// Sanitize stored value: only letters and spaces, max 32 chars
+			return stored.replace(/[^\p{L}\s]/gu, "").slice(0, 32);
 		}
 		return "";
 	});
@@ -303,8 +310,10 @@ export default function RoomLayout() {
 									id="name"
 									placeholder="e.g. John Doe"
 									value={name}
+									maxLength={32}
 									onChange={(e) => {
-										const value = e.target.value;
+										// Only allow letters (including Cyrillic/diacritics) and spaces
+										const value = e.target.value.replace(/[^\p{L}\s]/gu, "");
 										setName(value);
 										localStorage.setItem("userNickname", value);
 									}}
