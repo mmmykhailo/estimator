@@ -280,71 +280,68 @@ export default function RoomLayout() {
 		);
 	}
 
-	// Show name dialog if needed
-	if (showNameDialog) {
-		const nameError = actionData?.error;
-
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-				<Card className="w-full max-w-md">
-					<CardHeader>
-						<CardTitle>Join Room</CardTitle>
-						<CardDescription>
-							Enter your name to join room{" "}
-							<span className="font-mono font-bold">
-								{formatRoomCode(roomId)}
-							</span>
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="space-y-2">
-							<Label htmlFor="name">Your Name</Label>
-							<Input
-								id="name"
-								placeholder="e.g. John Doe"
-								value={name}
-								onChange={(e) => {
-									const value = e.target.value;
-									setName(value);
-									localStorage.setItem("userNickname", value);
-								}}
-								onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
-								className={nameError ? "border-destructive" : ""}
-								autoFocus
-								disabled={isSubmitting}
-							/>
-							{nameError && (
-								<p className="text-sm text-destructive">{nameError}</p>
-							)}
-						</div>
-						<div className="flex gap-2">
-							<Button
-								variant="outline"
-								onClick={() => navigate("/")}
-								className="flex-1"
-								disabled={isSubmitting}
-							>
-								Cancel
-							</Button>
-							<Button
-								onClick={handleJoinWithName}
-								disabled={
-									!name.trim() || name.trim().length < 2 || isSubmitting
-								}
-								className="flex-1"
-							>
-								{isSubmitting ? "Joining..." : "Join Room"}
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
-			</div>
-		);
-	}
+	const nameError = actionData?.error;
 
 	return (
 		<FirebaseRoomProvider roomId={roomId} userId={userId}>
-			<RoomContent roomId={roomId} userId={userId} />
+			{showNameDialog ? (
+				<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+					<Card className="w-full max-w-md">
+						<CardHeader>
+							<CardTitle>Join Room</CardTitle>
+							<CardDescription>
+								Enter your name to join room{" "}
+								<span className="font-mono font-bold">
+									{formatRoomCode(roomId)}
+								</span>
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="space-y-2">
+								<Label htmlFor="name">Your Name</Label>
+								<Input
+									id="name"
+									placeholder="e.g. John Doe"
+									value={name}
+									onChange={(e) => {
+										const value = e.target.value;
+										setName(value);
+										localStorage.setItem("userNickname", value);
+									}}
+									onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
+									className={nameError ? "border-destructive" : ""}
+									autoFocus
+									disabled={isSubmitting}
+								/>
+								{nameError && (
+									<p className="text-sm text-destructive">{nameError}</p>
+								)}
+							</div>
+							<div className="flex gap-2">
+								<Button
+									variant="outline"
+									onClick={() => navigate("/")}
+									className="flex-1"
+									disabled={isSubmitting}
+								>
+									Cancel
+								</Button>
+								<Button
+									onClick={handleJoinWithName}
+									disabled={
+										!name.trim() || name.trim().length < 2 || isSubmitting
+									}
+									className="flex-1"
+								>
+									{isSubmitting ? "Joining..." : "Join Room"}
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+			) : (
+				<RoomContent roomId={roomId} userId={userId} />
+			)}
 		</FirebaseRoomProvider>
 	);
 }
