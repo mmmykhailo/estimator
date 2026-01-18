@@ -61,11 +61,7 @@ export function meta({ params }: Route.MetaArgs) {
 	return [{ title: `Room ${params.roomId} - Estimation` }];
 }
 
-export async function clientLoader({
-	params,
-	request,
-}: Route.ClientLoaderArgs) {
-	const _url = new URL(request.url);
+export async function clientLoader({ params }: Route.ClientLoaderArgs) {
 	const roomId = params.roomId;
 
 	// Wait for auth to be fully ready (including token propagation)

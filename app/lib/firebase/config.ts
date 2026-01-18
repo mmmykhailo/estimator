@@ -1,10 +1,10 @@
 import { type FirebaseApp, initializeApp } from "firebase/app";
 import {
 	type Auth,
-	type User,
 	getAuth,
 	onAuthStateChanged,
 	signInAnonymously,
+	type User,
 } from "firebase/auth";
 import { type Database, getDatabase } from "firebase/database";
 
