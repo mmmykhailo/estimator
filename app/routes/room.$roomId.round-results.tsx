@@ -87,6 +87,12 @@ export default function Results() {
 		submit(formData, { method: "post" });
 	};
 
+	// Create a default workstream if none are defined (matches session page behavior)
+	const effectiveWorkstreams =
+		workstreams.length > 0
+			? workstreams
+			: [{ id: "general", name: "General", order: 0 }];
+
 	const shouldShowWorkstreamSection = workstreams.length > 1;
 	const resultsTitle = shouldShowWorkstreamSection
 		? "Results by Workstream"
@@ -157,7 +163,7 @@ export default function Results() {
 						</Badge>
 					</div>
 
-					{workstreams.map((workstream) => {
+					{effectiveWorkstreams.map((workstream) => {
 						const stats = getWorkstreamStats(workstream.id);
 						if (stats.count === 0) {
 							return (
