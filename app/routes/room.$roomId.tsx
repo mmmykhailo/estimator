@@ -188,7 +188,12 @@ export default function RoomLayout() {
 		loaderData;
 
 	const [showNameDialog, setShowNameDialog] = useState(false);
-	const [name, setName] = useState("");
+	const [name, setName] = useState(() => {
+		if (typeof window !== "undefined") {
+			return localStorage.getItem("userNickname") || "";
+		}
+		return "";
+	});
 
 	const isSubmitting = navigation.state === "submitting";
 
@@ -226,6 +231,9 @@ export default function RoomLayout() {
 		if (!trimmedName || trimmedName.length < 2) {
 			return;
 		}
+
+		// Save trimmed name to localStorage
+		localStorage.setItem("userNickname", trimmedName);
 
 		const formData = new FormData();
 		formData.append("_action", "join");
@@ -295,7 +303,11 @@ export default function RoomLayout() {
 								id="name"
 								placeholder="e.g. John Doe"
 								value={name}
-								onChange={(e) => setName(e.target.value)}
+								onChange={(e) => {
+									const value = e.target.value;
+									setName(value);
+									localStorage.setItem("userNickname", value);
+								}}
 								onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
 								className={nameError ? "border-destructive" : ""}
 								autoFocus
