@@ -1,5 +1,4 @@
 import { TooltipPortal } from "@radix-ui/react-tooltip";
-import { signInAnonymously } from "firebase/auth";
 import { AlertCircle, Check, Copy, Home } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -35,7 +34,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "~/components/ui/tooltip";
-import { auth } from "~/lib/firebase/config";
+import { auth, ensureAuth } from "~/lib/firebase/config";
 import {
 	checkRoomExists,
 	createRoom,
@@ -69,15 +68,9 @@ export async function clientLoader({
 	const _url = new URL(request.url);
 	const roomId = params.roomId;
 
-	// Ensure auth is initialized
-	if (!auth.currentUser) {
-		await signInAnonymously(auth);
-	}
-
-	const userId = auth.currentUser?.uid;
-	if (!userId) {
-		throw new Error("Failed to authenticate user");
-	}
+	// Wait for auth to be fully ready (including token propagation)
+	const user = await ensureAuth();
+	const userId = user.uid;
 
 	// Check if room exists
 	const roomExists = await checkRoomExists(roomId);

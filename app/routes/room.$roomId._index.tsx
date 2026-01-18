@@ -11,6 +11,7 @@ import {
 	CardTitle,
 } from "~/components/ui/card";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { ensureAuth } from "~/lib/firebase/config";
 import { startRound } from "~/lib/firebase/operations";
 import {
 	getParticipantsSnapshot,
@@ -32,6 +33,9 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
 	const roomId = params.roomId;
+
+	// Wait for auth to be fully ready before making database calls
+	await ensureAuth();
 
 	// Prefetch initial data in parallel
 	const [participants, workstreams, tasks] = await Promise.all([

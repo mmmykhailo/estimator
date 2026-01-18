@@ -1,4 +1,3 @@
-import { signInAnonymously } from "firebase/auth";
 import { Plus, X } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useEffect, useState } from "react";
@@ -20,7 +19,7 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Separator } from "~/components/ui/separator";
-import { auth } from "~/lib/firebase/config";
+import { ensureAuth } from "~/lib/firebase/config";
 import { createRoom } from "~/lib/firebase/operations";
 import { createRoomCode } from "~/lib/utils/room-code";
 import type { Task, Workstream } from "~/types/room";
@@ -35,9 +34,7 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function clientLoader(_args: Route.ClientLoaderArgs) {
 	// Ensure user is authenticated before they can create a room
-	if (!auth.currentUser) {
-		await signInAnonymously(auth);
-	}
+	await ensureAuth();
 	return null;
 }
 

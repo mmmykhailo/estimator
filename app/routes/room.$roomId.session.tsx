@@ -12,6 +12,7 @@ import {
 	CardTitle,
 } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
+import { ensureAuth } from "~/lib/firebase/config";
 import {
 	endRound,
 	markParticipantDone,
@@ -43,6 +44,9 @@ export function meta(_args: Route.MetaArgs) {
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
 	const roomId = params.roomId;
+
+	// Wait for auth to be fully ready before making database calls
+	await ensureAuth();
 
 	const [metadata, participants, workstreams, tasks, currentRound] =
 		await Promise.all([

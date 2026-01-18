@@ -1,5 +1,11 @@
 import { type FirebaseApp, initializeApp } from "firebase/app";
-import { type Auth, getAuth } from "firebase/auth";
+import {
+	type Auth,
+	type User,
+	getAuth,
+	onAuthStateChanged,
+	signInAnonymously,
+} from "firebase/auth";
 import { type Database, getDatabase } from "firebase/database";
 
 /**
@@ -51,3 +57,30 @@ export const database: Database = getDatabase(app);
  * Firebase Authentication instance
  */
 export const auth: Auth = getAuth(app);
+
+/**
+ * Wait for Firebase auth to be ready and return the current user.
+ * If no user is signed in, signs in anonymously.
+ * This ensures the auth token is fully propagated before database operations.
+ */
+export function ensureAuth(): Promise<User> {
+	return new Promise((resolve, reject) => {
+		const unsubscribe = onAuthStateChanged(
+			auth,
+			async (user) => {
+				unsubscribe();
+				if (user) {
+					resolve(user);
+				} else {
+					try {
+						const credential = await signInAnonymously(auth);
+						resolve(credential.user);
+					} catch (error) {
+						reject(error);
+					}
+				}
+			},
+			reject,
+		);
+	});
+}
